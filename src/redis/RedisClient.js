@@ -1,5 +1,4 @@
-import {Tedis} from 'tedis'
-import {parse} from "dotenv";
+import {Tedis} from 'tedis';
 
 class RedisClient {
   constructor({logger, config}) {
