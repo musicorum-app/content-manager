@@ -17,6 +17,13 @@ class SpotifyAPI {
     })
   }
 
+  async getArtists(ids) {
+    console.log(`artists?ids=${ids.join(',')}`, this.token.accessToken)
+    return this.request('artists', {
+      ids: ids.join(',')
+    })
+  }
+
   async request(path, params = {}) {
     if (this.isTokenExpired) await this.getToken()
 

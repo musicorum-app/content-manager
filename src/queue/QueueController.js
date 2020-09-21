@@ -24,11 +24,9 @@ class QueueController {
     for (let source of this.sources.keys()) {
       const tps = this.config.sources[source]
       const tasks = this.sources.get(source)
-      if (tasks.size) console.log(tasks, tps)
       let i = 0
       const toDelete = []
       for (let task of tasks.values()) {
-        console.log(i, tps)
         if (i === tps) break
         this.run(task)
         toDelete.push(task)
