@@ -1,8 +1,9 @@
 {
   "sources": {
-    "spotify": 5
+    "spotify": 6
   },
   "expiration": {
-    "artists": 604800
+    "artists": 604800,
+    "tracks": 604800
   }
 }

@@ -14,7 +14,15 @@ class Hashing {
   }
 
   static hashArtist(artist) {
-    return this.hash(this.normalizeString(artist))
+    return this.hash(
+      this.normalizeString(artist)
+    )
+  }
+
+  static hashTrack(name, artist, album) {
+    return this.hash(
+      this.normalizeString(`${name}:${artist}:${album}`)
+    )
   }
 }
 

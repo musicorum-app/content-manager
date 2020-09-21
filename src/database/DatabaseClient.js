@@ -16,18 +16,48 @@ class DatabaseClient {
       .catch(() => logger.error('Database disconnected!'))
   }
 
-  findArtist(hash, showCachedAt = false) {
-    return this.database
-      .collection('artists')
-      .findOne({hash}, {
-        projection: {
-          _id: 0,
-          hash: 1,
-          spotify: 1,
-          image: 1,
-          cachedAt: 1
-        }
-      })
+  findArtist(hash) {
+    try {
+      return this.database
+        .collection('artists')
+        .findOne({hash}, {
+          projection: {
+            _id: 0,
+            name: 1,
+            hash: 1,
+            spotify: 1,
+            image: 1,
+            cachedAt: 1
+          }
+        })
+    } catch (e) {
+      this.logger.error(e)
+      return null
+    }
+  }
+
+  findTrack(hash) {
+    try {
+      return this.database
+        .collection('tracks')
+        .findOne({hash}, {
+          projection: {
+            _id: 0,
+            name: 1,
+            artist: 1,
+            album: 1,
+            hash: 1,
+            spotify: 1,
+            cover: 1,
+            duration: 1,
+            cachedAt: 1,
+            preview: 1
+          }
+        })
+    } catch (e) {
+      this.logger.error(e)
+      return null
+    }
   }
 
   insertArtist(artist) {
@@ -35,6 +65,15 @@ class DatabaseClient {
       .collection('artists')
       .insertOne({
         ...artist,
+        cachedAt: new Date().getTime()
+      })
+  }
+
+  insertTrack(track) {
+    return this.database
+      .collection('tracks')
+      .insertOne({
+        ...track,
         cachedAt: new Date().getTime()
       })
   }

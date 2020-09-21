@@ -1,59 +1,81 @@
 import chalk from "chalk";
 import QueueSource from "./QueueSource";
+import crypto from 'crypto'
 
 class QueueController {
   constructor({logger, config}) {
     this.logger = logger
     this.config = config
-    this.sources = new Map()
+    this.queue = {}
+    this.runningQueue = {}
     this.init()
   }
 
-  init () {
+  init() {
     const sources = Object.values(QueueSource)
     for (let source of sources) {
-      this.sources.set(source, new Set())
-      this.logger.silly(`Setting up queue source ${chalk.cyan(source)}.`)
+      this.queue[source] = new Map()
+      this.runningQueue[source] = new Map()
     }
 
     setInterval(this.tick.bind(this), 1000)
   }
 
-  tick () {
-    // this.logger.silly('TICK')
-    for (let source of this.sources.keys()) {
-      const tps = this.config.sources[source]
-      const tasks = this.sources.get(source)
-      let i = 0
-      const toDelete = []
-      for (let task of tasks.values()) {
-        if (i === tps) break
-        this.run(task)
-        toDelete.push(task)
-        i++
-      }
-
-      for (let task of toDelete) {
-        tasks.delete(task)
-      }
-    }
+  getRandomId () {
+    return crypto.randomBytes(32).toString('hex').toUpperCase()
   }
 
-  async run ({task, resolve, reject}) {
-    try {
-      this.logger.silly('Running task...')
-      const result = await task()
-      this.logger.silly('Task done!')
-      resolve(result)
-    } catch (e) {
-      reject(e)
-    }
+  tick() {
+    // this.logger.silly('TICK')
+    Object.values(QueueSource)
+      .forEach(source => {
+        const tps = this.config.sources[source]
+        const queue = this.queue[source]
+        const running = this.runningQueue[source]
+        const ableToDo = tps - running.size
+
+        this.logger.silly('Able to do: ' + chalk.magenta(ableToDo))
+        if (queue.size > 0) {
+          this.logger.silly('Actual queue size: ' + chalk.cyan(running.size + '/' + queue.size))
+        }
+
+        if (queue.size <= ableToDo) {
+          queue.forEach((i, k) => {
+            running.set(k, i)
+            this.run(k, source, i)
+          })
+          queue.clear()
+        } else {
+          const iterator = queue.entries()
+          const reqs = []
+          for (let i = 0; i < ableToDo; i++) {
+            reqs.push(iterator.next().value)
+          }
+          reqs.forEach(([k, v]) => {
+            this.run(k, source, v)
+            queue.delete(k)
+          })
+        }
+      })
+  }
+
+  async run(id, source, {task, resolve, reject}) {
+    this.logger.silly('Running task ' + chalk.cyan(id))
+    task()
+      .then(r => {
+        this.logger.silly('Task done!')
+        resolve(r)
+        this.runningQueue[source].delete(id)
+      })
+      .catch(e => {
+        reject(e)
+        this.runningQueue[source].delete(id)
+      })
   }
 
   async queueTask(source, task) {
     return new Promise((resolve, reject) => {
-      const queue = this.sources.get(source)
-      queue.add({
+      this.queue[source].set(this.getRandomId(), {
         task,
         resolve,
         reject

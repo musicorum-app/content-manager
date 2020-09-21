@@ -14,7 +14,7 @@ import RedisClient from "./redis/RedisClient";
 import DatabaseClient from "./database/DatabaseClient";
 import cors from 'cors'
 
-import artistsRoute from './routes/artists'
+import routes from './routes'
 
 const app = express()
 const logger = setupLogger()
@@ -26,13 +26,10 @@ const database = new DatabaseClient(clientCtx)
 const spotifyApi = new SpotifyAPI()
 
 app.use(express.json())
-app.use(cors({
-  origin: process.env.CORS_ORIGIN | '*'
-}))
+app.use(cors())
 
 
 const loadRoutes = async () => {
-  const routes = [artistsRoute]
   const router = express.Router()
   for (let route of routes) {
     route({
