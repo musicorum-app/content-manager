@@ -16,6 +16,11 @@ class RedisClient {
     await this.client.expire(key, this.config.expiration.artists)
   }
 
+  async setAlbum(key, album) {
+    await this.client.hmset(key, album)
+    await this.client.expire(key, this.config.expiration.albums)
+  }
+
   async setTrack(key, track) {
     await this.client.hmset(key, {
       ...track,

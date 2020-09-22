@@ -24,6 +24,12 @@ class Hashing {
       this.normalizeString(`${name}:${artist}:${album}`)
     )
   }
+
+  static hashAlbum(name, artist) {
+    return this.hash(
+      this.normalizeString(`${name}:${artist}`)
+    )
+  }
 }
 
 export default Hashing

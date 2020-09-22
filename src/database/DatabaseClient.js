@@ -61,6 +61,24 @@ class DatabaseClient {
     }
   }
 
+  findAlbum(hash) {
+    try {
+      return this.database
+        .collection('albums')
+        .findOne({hash}, {
+          projection: {
+            _id: 0,
+            name: 1,
+            spotify: 1,
+            cover: 1
+          }
+        })
+    } catch (e) {
+      this.logger.error(e)
+      return null
+    }
+  }
+
   getTrackFeatures(id) {
     try {
       return this.database
@@ -88,6 +106,15 @@ class DatabaseClient {
       .collection('artists')
       .insertOne({
         ...artist,
+        cachedAt: new Date().getTime()
+      })
+  }
+
+  insertAlbum(album) {
+    return this.database
+      .collection('albums')
+      .insertOne({
+        ...album,
         cachedAt: new Date().getTime()
       })
   }

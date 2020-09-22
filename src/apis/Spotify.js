@@ -20,6 +20,14 @@ class SpotifyAPI {
     })
   }
 
+  async searchAlbum(album, artist, limit = 1) {
+    return this.client.search({
+      type: 'album',
+      query: `"${album}" artist:"${artist}"`,
+      limit
+    })
+  }
+
   async searchTrack(query, limit = 1) {
     return this.client.search({
       type: 'track',
