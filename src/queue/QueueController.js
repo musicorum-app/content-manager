@@ -34,9 +34,9 @@ class QueueController {
         const running = this.runningQueue[source]
         const ableToDo = tps - running.size
 
-        this.logger.silly('Able to do: ' + chalk.magenta(ableToDo))
         if (queue.size > 0) {
-          this.logger.silly('Actual queue size: ' + chalk.cyan(running.size + '/' + queue.size))
+          this.logger.silly('Actual queue size: ' + chalk.cyan(running.size + '/' + queue.size)
+          + chalk.yellow(' ' + source))
         }
 
         if (queue.size <= ableToDo) {
@@ -60,7 +60,7 @@ class QueueController {
   }
 
   async run(id, source, {task, resolve, reject}) {
-    this.logger.silly('Running task ' + chalk.cyan(id))
+    this.logger.silly('Running task ' + chalk.cyan(`${id} - ${source}`))
     task()
       .then(r => {
         this.logger.silly('Task done!')

@@ -48,6 +48,7 @@ class DatabaseClient {
             album: 1,
             hash: 1,
             spotify: 1,
+            deezer: 1,
             cover: 1,
             duration: 1,
             cachedAt: 1,
@@ -58,6 +59,17 @@ class DatabaseClient {
       this.logger.error(e)
       return null
     }
+  }
+
+  modifyTrack(hash, update) {
+    return this.database
+      .collection('tracks')
+      .findOneAndUpdate(
+        {hash},
+        {
+          $set: update
+        }
+      )
   }
 
   insertArtist(artist) {

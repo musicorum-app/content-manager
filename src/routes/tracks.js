@@ -4,6 +4,7 @@ import findArtist from "../finders/artist";
 import {chunkArray, flatArray} from "../utils/utils";
 import messages from "../messages";
 import findTrack from "../finders/track";
+import DeezerAPI from "../apis/Deezer";
 
 const route = (ctx) => {
   const {router, logger} = ctx
@@ -15,17 +16,19 @@ const route = (ctx) => {
       .status(400)
       .json(messages.MISSING_PARAMS)
 
+    const showPreview = req.query.preview === 'true'
+
     const promises = []
 
     tracks.forEach(track => {
       logger.silly(chalk.cyan('Scheduling track task ' + track.name))
 
-      const task = findTrack(ctx, track)
+      const task = findTrack(ctx, track, showPreview)
 
       promises.push(task)
     })
 
-    let result = await Promise.all(promises)
+    const result = await Promise.all(promises)
 
     res.json(result)
   })

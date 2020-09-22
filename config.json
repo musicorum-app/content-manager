@@ -1,6 +1,7 @@
 {
   "sources": {
-    "spotify": 6
+    "spotify": 6,
+    "deezer": 9
   },
   "expiration": {
     "artists": 604800,

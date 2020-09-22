@@ -16,11 +16,12 @@ class RedisClient {
     await this.client.expire(key, this.config.expiration.artists)
   }
 
-  async setTrack(key, artist) {
+  async setTrack(key, track) {
     await this.client.hmset(key, {
-      ...artist,
-      duration: artist.duration.toString(),
-      preview: artist.preview || 'null'
+      ...track,
+      duration: track.duration.toString(),
+      preview: track.preview || 'null',
+      deezer: track.deezer || 'null'
     })
     await this.client.expire(key, this.config.expiration.tracks)
   }
@@ -30,7 +31,8 @@ class RedisClient {
     return {
       ...track,
       duration: parseInt(track.duration),
-      preview: track.preview && track.preview !== 'null' ? track.preview : null
+      preview: track.preview && track.preview !== 'null' ? track.preview : null,
+      deezer: track.deezer && track.deezer !== 'null' ? track.deezer : null
     }
   }
 }

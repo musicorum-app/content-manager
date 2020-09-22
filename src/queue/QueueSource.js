@@ -1,3 +1,4 @@
 export default {
-  SPOTIFY: 'spotify'
+  SPOTIFY: 'spotify',
+  DEEZER: 'deezer'
 }
