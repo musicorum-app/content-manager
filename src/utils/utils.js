@@ -27,7 +27,7 @@ export function stringifyObject(obj) {
 export function numberfyObject(obj) {
   const clone = {}
   for (let key of Object.keys(obj)) {
-    clone[key] = parseInt(obj[key])
+    clone[key] = parseFloat(obj[key])
   }
   return clone
 }
