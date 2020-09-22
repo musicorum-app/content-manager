@@ -17,7 +17,9 @@ const findTrack = async (
     const exists = await redis.client.exists(hash)
     if (exists) {
       const t = await redis.getTrack(hash)
-      return resolvePreview({queueController, database}, showPreview, t)
+      const track = await resolvePreview({queueController, database}, showPreview, t)
+      redis.setTrack(hash, track)
+      return track
     } else {
       const f = await database.findTrack(hash)
 
@@ -28,6 +30,8 @@ const findTrack = async (
         return found
       } else {
         const res = await queueController.queueTask(QueueSource.SPOTIFY, async () => {
+          logger.silly(chalk.cyan('Scheduling track task ' + name))
+
           const albumAdc = album ? ` album:${album}` : ''
           return spotifyApi.searchTrack(`"${name}" artist:${artist}${albumAdc}`)
         })
@@ -75,6 +79,8 @@ const resolvePreview = async ({queueController, database}, show, track) => {
       return data[0]
     }
   }
+
+  console.log("PREV " + track.preview)
 
   const res = await queueController.queueTask(QueueSource.DEEZER, p)
 

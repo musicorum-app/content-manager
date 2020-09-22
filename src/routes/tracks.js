@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import QueueSource from "../queue/QueueSource";
 import findArtist from "../finders/artist";
-import {chunkArray, flatArray} from "../utils/utils";
+import {chunkArray, flatArray, numberfyObject, stringifyObject} from "../utils/utils";
 import messages from "../messages";
 import findTrack from "../finders/track";
 import DeezerAPI from "../apis/Deezer";
@@ -10,27 +10,88 @@ const route = (ctx) => {
   const {router, logger} = ctx
 
   router.use('/resource/tracks', async (req, res) => {
-    const {tracks} = req.body
+    try {
+      const {tracks} = req.body
 
-    if (!tracks || !Array.isArray(tracks)) return res
-      .status(400)
-      .json(messages.MISSING_PARAMS)
+      if (!tracks || !Array.isArray(tracks)) return res
+        .status(400)
+        .json(messages.MISSING_PARAMS)
 
-    const showPreview = req.query.preview === 'true'
+      const showPreview = req.query.preview === 'true'
 
-    const promises = []
+      const promises = []
 
-    tracks.forEach(track => {
-      logger.silly(chalk.cyan('Scheduling track task ' + track.name))
+      tracks.forEach(track => {
+        const task = findTrack(ctx, track, showPreview)
 
-      const task = findTrack(ctx, track, showPreview)
+        promises.push(task)
+      })
 
-      promises.push(task)
-    })
+      let result = await Promise.all(promises)
 
-    const result = await Promise.all(promises)
+      if (req.query.analysis === 'true') {
+        result = await handleAnalysis(ctx, result)
+      }
 
-    res.json(result)
+      res.json(result)
+    } catch (e) {
+      logger.error(e)
+    }
+  })
+}
+
+const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tracks) => {
+  const ids = []
+  for (const track of tracks) {
+    if (track && track.spotify) {
+      const exists = await redis.client.exists(`track-analysis:${track.spotify}`)
+      if (exists) {
+        track.analysis = numberfyObject(await redis.client.hgetall(`track-analysis:${track.spotify}`))
+      } else {
+        const data = await database.getTrackFeatures(track.spotify)
+        if (data) {
+          redis.client.hmset(`track-analysis:${track.spotify}`, stringifyObject(data))
+          track.analysis = data
+        } else {
+          ids.push(track.spotify)
+        }
+      }
+    }
+
+    if (track && track.analysis) delete track.analysis._id
+  }
+
+  const chunked = chunkArray(ids, 50)
+
+  const res = await Promise.all(
+    chunked.map(c => queueController.queueTask(QueueSource.SPOTIFY, () => spotifyApi.getAudioFeatures(c)))
+  )
+
+  const audiosFeatures = flatArray(res.map(r => r.audio_features))
+  const objs = new Map()
+
+  for (const features of audiosFeatures) {
+    const obj = {
+      energy: features.energy,
+      danceability: features.danceability,
+      speechiness: features.speechiness,
+      instrumentalness: features.instrumentalness,
+      valence: features.valence,
+      tempo: features.tempo
+    }
+    objs.set(features.id, obj)
+    await redis.client.hmset(`track-analysis:${features.id}`, stringifyObject(obj))
+    database.insertTrackFeatures(features.id, obj)
+  }
+
+  return tracks.map(track => {
+    if (!track) return null
+    if (track.analysis) return track
+
+    return {
+      ...track,
+      analysis: objs.get(track.spotify)
+    }
   })
 }
 

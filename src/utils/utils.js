@@ -15,3 +15,19 @@ export function flatArray(arr) {
     return flat.concat(Array.isArray(toFlatten) ? flatArray(toFlatten) : toFlatten);
   }, []);
 }
+
+export function stringifyObject(obj) {
+  const clone = {}
+  for (let key of Object.keys(obj)) {
+    clone[key] = obj[key].toString()
+  }
+  return clone
+}
+
+export function numberfyObject(obj) {
+  const clone = {}
+  for (let key of Object.keys(obj)) {
+    clone[key] = parseInt(obj[key])
+  }
+  return clone
+}

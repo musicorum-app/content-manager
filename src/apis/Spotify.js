@@ -1,7 +1,7 @@
 import fetch from 'node-fetch'
 import SpotifyClient from 'node-spotify-api'
 
-const API_URL = 'https://api.spotify.com/v1/'
+const API_URL = 'https://api.spotify.com/v1'
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token'
 
 class SpotifyAPI {
@@ -29,7 +29,11 @@ class SpotifyAPI {
   }
 
   async getArtists(ids) {
-    return this.client.request(`${API_URL}?q=${ids.join(',')}`)
+    return this.client.request(`${API_URL}/artists?ids=${ids.join(',')}`)
+  }
+
+  async getAudioFeatures(ids) {
+    return this.client.request(API_URL + '/audio-features?ids=' + ids.join(','))
   }
 }
 

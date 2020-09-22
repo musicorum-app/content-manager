@@ -61,6 +61,17 @@ class DatabaseClient {
     }
   }
 
+  getTrackFeatures(id) {
+    try {
+      return this.database
+        .collection('trackFeatures')
+        .findOne({_id: id})
+    } catch (e) {
+      this.logger.error(e)
+      return null
+    }
+  }
+
   modifyTrack(hash, update) {
     return this.database
       .collection('tracks')
@@ -88,6 +99,20 @@ class DatabaseClient {
         ...track,
         cachedAt: new Date().getTime()
       })
+  }
+
+  insertTrackFeatures(id, data) {
+    try {
+      return this.database
+        .collection('trackFeatures')
+        .insertOne({
+          _id: id,
+          ...data
+        })
+    } catch (e) {
+      this.logger.error(e)
+      return null
+    }
   }
 }
 

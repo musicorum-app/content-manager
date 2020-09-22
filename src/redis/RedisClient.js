@@ -19,7 +19,7 @@ class RedisClient {
   async setTrack(key, track) {
     await this.client.hmset(key, {
       ...track,
-      duration: track.duration.toString(),
+      duration: track.duration ? track.duration.toString() : '0',
       preview: track.preview || 'null',
       deezer: track.deezer || 'null'
     })
