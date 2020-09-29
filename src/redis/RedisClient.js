@@ -1,6 +1,6 @@
 import {Tedis} from 'tedis';
 
-class RedisClient {
+export default class RedisClient {
   constructor({logger, config}) {
     this.config = config
     this.logger = logger
@@ -42,4 +42,4 @@ class RedisClient {
   }
 }
 
-export default RedisClient
+// export default RedisClient

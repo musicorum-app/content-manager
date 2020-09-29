@@ -59,3 +59,5 @@ loadRoutes()
       logger.info(`Server listening on port ${chalk.cyan(':' + port)}`)
     })
   })
+
+export {RedisClient}

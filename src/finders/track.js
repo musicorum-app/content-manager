@@ -10,14 +10,14 @@ const findTrack = async (
     redis,
     database,
     queueController
-  }, {name, artist, album}, showPreview) => {
+  }, {name, artist, album}, showPreview, needsDeezer) => {
   try {
     const hash = Hashing.hashTrack(name, artist, album)
 
     const exists = await redis.client.exists(hash)
     if (exists) {
       const t = await redis.getTrack(hash)
-      const track = await resolvePreview({queueController, database}, showPreview, t)
+      const track = await resolveTrack({queueController, database}, showPreview, needsDeezer, t)
       redis.setTrack(hash, track)
       return track
     } else {
@@ -25,7 +25,7 @@ const findTrack = async (
 
       if (f) {
         delete f.cachedAt
-        const found = await resolvePreview({queueController, database}, showPreview, f)
+        const found = await resolveTrack({queueController, database}, showPreview, needsDeezer, f)
         redis.setTrack(hash, found)
         return found
       } else {
@@ -50,7 +50,7 @@ const findTrack = async (
           preview: obj.preview_url
         }
 
-        item = await resolvePreview({queueController, database}, showPreview, item)
+        item = await resolveTrack({queueController, database}, showPreview, needsDeezer, item)
 
         redis.setTrack(hash, item)
         database.insertTrack(item)
@@ -64,11 +64,15 @@ const findTrack = async (
   }
 }
 
-const resolvePreview = async ({queueController, database}, show, track) => {
-  if (!show) return track
+const resolveTrack = async ({queueController, database}, show, deezer, track) => {
+  if (!show && !deezer) return track
   if (!track) return null
 
-  if (track.preview) return track
+  let canReturn = true
+  if (show && !track.preview) canReturn = false
+  if (deezer && !track.deezer) canReturn = false
+
+  if (canReturn) return track
 
   let p
   if (track.deezer) {
@@ -88,7 +92,7 @@ const resolvePreview = async ({queueController, database}, show, track) => {
 
   const update = {
     deezer: res.id.toString(),
-    preview: res.preview
+    preview: track.preview || res.preview
   }
 
   database.modifyTrack(track.hash, update)

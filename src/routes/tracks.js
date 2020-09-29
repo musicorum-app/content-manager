@@ -1,10 +1,7 @@
-import chalk from "chalk";
 import QueueSource from "../queue/QueueSource";
-import findArtist from "../finders/artist";
 import {chunkArray, flatArray, numberfyObject, stringifyObject} from "../utils/utils";
 import messages from "../messages";
 import findTrack from "../finders/track";
-import DeezerAPI from "../apis/Deezer";
 
 const route = (ctx) => {
   const {router, logger} = ctx
@@ -18,11 +15,12 @@ const route = (ctx) => {
         .json(messages.MISSING_PARAMS)
 
       const showPreview = req.query.preview === 'true'
+      const needsDeezer = req.query.deezer === 'true'
 
       const promises = []
 
       tracks.forEach(track => {
-        const task = findTrack(ctx, track, showPreview)
+        const task = findTrack(ctx, track, showPreview, needsDeezer)
 
         promises.push(task)
       })
