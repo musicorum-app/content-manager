@@ -75,7 +75,6 @@ const route = (ctx) => {
       })
     })
   })
-
 }
 
 const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tracks) => {
