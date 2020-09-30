@@ -4,9 +4,9 @@ import messages from "../messages";
 import findTrack from "../finders/track";
 
 const route = (ctx) => {
-  const {router, logger} = ctx
+  const {router, logger, redis, database} = ctx
 
-  router.use('/resource/tracks', async (req, res) => {
+  router.post('/find/tracks', async (req, res) => {
     try {
       const {tracks} = req.body
 
@@ -36,6 +36,40 @@ const route = (ctx) => {
       logger.error(e)
     }
   })
+
+  router.get('/tracks', async (req, res) => {
+    const tracksQuery = req.query.tracks
+    if (!tracksQuery) {
+      return res
+        .status(400)
+        .json(messages.MISSING_PARAMS)
+    }
+    const tracks = tracksQuery.split(',')
+
+    if (!tracks || !Array.isArray(tracks)) return res
+      .status(400)
+      .json(messages.MISSING_PARAMS)
+
+    const result = []
+    for (let track of tracks) {
+      try {
+        const cache = await redis.client.hgetall(track)
+        if (Object.keys(cache).length) {
+          result.push(cache)
+        } else {
+          const search = await database.findTrack(track)
+          result.push(search)
+        }
+
+      } catch (e) {
+        console.error(e)
+        result.push(null)
+      }
+    }
+
+    res.json({tracks: result})
+  })
+
 }
 
 const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tracks) => {
