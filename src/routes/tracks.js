@@ -68,7 +68,11 @@ const route = (ctx) => {
     }
 
     res.json({
-      tracks: result.map(r => ({...r, duration: parseInt(r.duration)}))
+      tracks: result.map(r => {
+        if (!r) return null
+        if (r.duration) r.duration = parseInt(r.duration + '')
+        return r
+      })
     })
   })
 
