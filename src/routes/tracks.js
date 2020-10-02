@@ -56,8 +56,7 @@ const route = (ctx) => {
         if (Object.keys(cache).length) {
           return cache
         } else {
-          const search = await database.findTrack(track)
-          return search
+          return database.findTrack(track)
         }
 
       } catch (e) {

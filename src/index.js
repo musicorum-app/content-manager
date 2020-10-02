@@ -28,6 +28,11 @@ const spotifyApi = new SpotifyAPI()
 app.use(express.json())
 app.use(cors())
 
+app.use((_, res, next) => {
+  res.append('Musicorum-Content-Manager-Version', '1.0')
+  next()
+})
+
 
 const loadRoutes = async () => {
   const router = express.Router()
