@@ -50,22 +50,21 @@ const route = (ctx) => {
       .status(400)
       .json(messages.MISSING_PARAMS)
 
-    const result = []
-    for (let track of tracks) {
+    const result = await Promise.all(tracks.map(async track => {
       try {
         const cache = await redis.client.hgetall(track)
         if (Object.keys(cache).length) {
-          result.push(cache)
+          return cache
         } else {
           const search = await database.findTrack(track)
-          result.push(search)
+          return search
         }
 
       } catch (e) {
         console.error(e)
-        result.push(null)
+        return null
       }
-    }
+    }))
 
     res.json({
       tracks: result.map(r => {
