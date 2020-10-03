@@ -7,7 +7,7 @@ import messages from "../messages";
 const route = (ctx) => {
   const {router, logger} = ctx
 
-  router.use('/resource/artists', async (req, res) => {
+  router.use('/find/artists', async (req, res) => {
     const {artists} = req.body
     if (!artists || !Array.isArray(artists)) return res
       .status(400)

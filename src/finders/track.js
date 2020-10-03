@@ -3,21 +3,21 @@ import QueueSource from "../queue/QueueSource";
 import DeezerAPI from "../apis/Deezer";
 import chalk from "chalk";
 
-const findTrack = async (
-  {
+const findTrack = async (ctx, {name, artist, album}, showPreview, needsDeezer) => {
+  const {
     spotifyApi,
     logger,
     redis,
     database,
     queueController
-  }, {name, artist, album}, showPreview, needsDeezer) => {
+  } = ctx
   try {
     const hash = Hashing.hashTrack(name, artist, album)
 
     const exists = await redis.client.exists(hash)
     if (exists) {
       const t = await redis.getTrack(hash)
-      const track = await resolveTrack({queueController, database}, showPreview, needsDeezer, t)
+      const track = await resolveTrack(ctx, showPreview, needsDeezer, t)
       redis.setTrack(hash, track)
       return track
     } else {
@@ -25,7 +25,7 @@ const findTrack = async (
 
       if (f) {
         delete f.cachedAt
-        const found = await resolveTrack({queueController, database}, showPreview, needsDeezer, f)
+        const found = await resolveTrack(ctx, showPreview, needsDeezer, f)
         redis.setTrack(hash, found)
         return found
       } else {
@@ -50,7 +50,7 @@ const findTrack = async (
           preview: obj.preview_url
         }
 
-        item = await resolveTrack({queueController, database}, showPreview, needsDeezer, item)
+        item = await resolveTrack(ctx, showPreview, needsDeezer, item)
 
         redis.setTrack(hash, item)
         database.insertTrack(item)
@@ -64,15 +64,15 @@ const findTrack = async (
   }
 }
 
-const resolveTrack = async ({queueController, database}, show, deezer, track) => {
-  if (!show && !deezer) return track
+const resolveTrack = (ctx, preview, deezer, track) => {
+  return resolveDeezer(ctx, deezer, track)
+    .then(track => resolvePreview(ctx, preview, track))
+}
+
+const resolvePreview = async ({queueController, database, logger}, preview, track) => {
+  if (!preview) return track
   if (!track) return null
-
-  let canReturn = true
-  if (show && !track.preview) canReturn = false
-  if (deezer && !track.deezer) canReturn = false
-
-  if (canReturn) return track
+  if (track.preview) return track
 
   let p
   if (track.deezer) {
@@ -83,8 +83,34 @@ const resolveTrack = async ({queueController, database}, show, deezer, track) =>
       return data[0]
     }
   }
+  logger.silly("PREV " + track.preview)
+  const res = await queueController.queueTask(QueueSource.DEEZER, p)
 
-  console.log("PREV " + track.preview)
+  if (!res) return track
+
+  const update = {
+    deezer: res.id.toString(),
+    preview: track.preview || res.preview
+  }
+
+  database.modifyTrack(track.hash, update)
+
+  return {
+    ...track,
+    ...update
+  }
+}
+
+const resolveDeezer = async ({queueController, database, logger}, deezer, track) => {
+  if (!deezer) return track
+  if (!track) return null
+
+  if (track.deezer) return track
+
+  const p = async () => {
+    const {data} = await DeezerAPI.searchTrack(track.name, track.artist, track.album)
+    return data[0]
+  }
 
   const res = await queueController.queueTask(QueueSource.DEEZER, p)
 

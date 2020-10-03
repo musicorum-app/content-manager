@@ -34,6 +34,8 @@ const route = (ctx) => {
       res.json(result)
     } catch (e) {
       logger.error(e)
+      console.error(e)
+      res.status(500).json(messages.INTERNAL_ERROR)
     }
   })
 
@@ -97,15 +99,18 @@ const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tr
   }
 
   const chunked = chunkArray(ids, 50)
+  console.log(ids)
 
   const res = await Promise.all(
     chunked.map(c => queueController.queueTask(QueueSource.SPOTIFY, () => spotifyApi.getAudioFeatures(c)))
   )
 
+
   const audiosFeatures = flatArray(res.map(r => r.audio_features))
   const objs = new Map()
 
   for (const features of audiosFeatures) {
+    if (!features) continue
     const obj = {
       energy: features.energy,
       danceability: features.danceability,

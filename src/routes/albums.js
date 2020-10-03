@@ -4,7 +4,7 @@ import findAlbum from "../finders/album";
 const route = (ctx) => {
   const {router, logger} = ctx
 
-  router.use('/resource/albums', async (req, res) => {
+  router.use('/find/albums', async (req, res) => {
     try {
       const {albums} = req.body
 
