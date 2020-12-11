@@ -14,6 +14,8 @@ const findArtist = async (
 
     const exists = await redis.client.exists(hash)
     if (exists) {
+      const type = await redis.client.type(hash)
+      if (type === 'string') return null
       return redis.client.hgetall(hash)
     } else {
       const found = await database.findArtist(hash)
@@ -28,7 +30,10 @@ const findArtist = async (
           return spotifyApi.searchArtist(name)
         })
 
-        if (res.artists.items.length === 0) return null
+        if (res.artists.items.length === 0) {
+          redis.client.set(hash, 'NOT_FOUND')
+          return null
+        }
 
 
         const obj = res.artists.items[0]
