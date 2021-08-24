@@ -1,9 +1,9 @@
-import Hashing from "../utils/hashing";
-import QueueSource from "../queue/QueueSource";
-import DeezerAPI from "../apis/Deezer";
-import chalk from "chalk";
+import Hashing from '../utils/hashing'
+import QueueSource from '../queue/QueueSource'
+import DeezerAPI from '../apis/Deezer'
+import chalk from 'chalk'
 
-const findTrack = async (ctx, {name, artist, album}, showPreview, needsDeezer) => {
+const findTrack = async (ctx, { name, artist, album }, showPreview, needsDeezer) => {
   const {
     spotifyApi,
     logger,
@@ -69,7 +69,7 @@ const resolveTrack = (ctx, preview, deezer, track) => {
     .then(track => resolvePreview(ctx, preview, track))
 }
 
-const resolvePreview = async ({queueController, database, logger}, preview, track) => {
+const resolvePreview = async ({ queueController, database, logger }, preview, track) => {
   if (!preview) return track
   if (!track) return null
   if (track.preview) return track
@@ -79,11 +79,11 @@ const resolvePreview = async ({queueController, database, logger}, preview, trac
     p = () => DeezerAPI.getTrack(track.deezer)
   } else {
     p = async () => {
-      const {data} = await DeezerAPI.searchTrack(track.name, track.artist, track.album)
+      const { data } = await DeezerAPI.searchTrack(track.name, track.artist, track.album)
       return data[0]
     }
   }
-  logger.silly("PREV " + track.preview)
+  logger.silly('PREV ' + track.preview)
   const res = await queueController.queueTask(QueueSource.DEEZER, p)
 
   if (!res) return track
@@ -101,14 +101,14 @@ const resolvePreview = async ({queueController, database, logger}, preview, trac
   }
 }
 
-const resolveDeezer = async ({queueController, database, logger}, deezer, track) => {
+const resolveDeezer = async ({ queueController, database, logger }, deezer, track) => {
   if (!deezer) return track
   if (!track) return null
 
   if (track.deezer) return track
 
   const p = async () => {
-    const {data} = await DeezerAPI.searchTrack(track.name, track.artist, track.album)
+    const { data } = await DeezerAPI.searchTrack(track.name, track.artist, track.album)
     return data[0]
   }
 

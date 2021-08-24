@@ -1,5 +1,5 @@
-import Hashing from "../utils/hashing";
-import QueueSource from "../queue/QueueSource";
+import Hashing from '../utils/hashing'
+import QueueSource from '../queue/QueueSource'
 
 const findAlbum = async (
   {
@@ -8,7 +8,7 @@ const findAlbum = async (
     redis,
     database,
     queueController
-  }, {name, artist}) => {
+  }, { name, artist }) => {
   try {
     const hash = Hashing.hashAlbum(name, artist)
 
@@ -29,7 +29,6 @@ const findAlbum = async (
         })
 
         if (res.albums.items.length === 0) return null
-
 
         const obj = res.albums.items[0]
         const item = {

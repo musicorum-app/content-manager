@@ -1,18 +1,20 @@
-import QueueSource from "../queue/QueueSource";
-import {chunkArray, flatArray, numberfyObject, stringifyObject} from "../utils/utils";
-import messages from "../messages";
-import findTrack from "../finders/track";
+import QueueSource from '../queue/QueueSource'
+import { chunkArray, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
+import messages from '../messages'
+import findTrack from '../finders/track'
 
 const route = (ctx) => {
-  const {router, logger, redis, database} = ctx
+  const { router, logger, redis, database } = ctx
 
   router.post('/find/tracks', async (req, res) => {
     try {
-      const {tracks} = req.body
+      const { tracks } = req.body
 
-      if (!tracks || !Array.isArray(tracks)) return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
+      if (!tracks || !Array.isArray(tracks)) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
+      }
 
       const showPreview = req.query.preview === 'true'
       const needsDeezer = req.query.deezer === 'true'
@@ -48,9 +50,11 @@ const route = (ctx) => {
     }
     const tracks = tracksQuery.split(',')
 
-    if (!tracks || !Array.isArray(tracks)) return res
-      .status(400)
-      .json(messages.MISSING_PARAMS)
+    if (!tracks || !Array.isArray(tracks)) {
+      return res
+        .status(400)
+        .json(messages.MISSING_PARAMS)
+    }
 
     const result = await Promise.all(tracks.map(async track => {
       try {
@@ -60,7 +64,6 @@ const route = (ctx) => {
         } else {
           return database.findTrack(track)
         }
-
       } catch (e) {
         console.error(e)
         return null
@@ -77,13 +80,13 @@ const route = (ctx) => {
   })
 }
 
-const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tracks) => {
+const handleAnalysis = async ({ database, redis, queueController, spotifyApi }, tracks) => {
   const ids = []
   for (const track of tracks) {
     if (track && track.spotify) {
       const exists = await redis.client.exists(`track-analysis:${track.spotify}`)
       if (exists) {
-        track.analysis = numberfyObject(await redis.client.hgetall(`track-analysis:${track.spotify}`))
+        track.analysis = numerifyObject(await redis.client.hgetall(`track-analysis:${track.spotify}`))
       } else {
         const data = await database.getTrackFeatures(track.spotify)
         if (data) {
@@ -104,7 +107,6 @@ const handleAnalysis = async ({database, redis, queueController, spotifyApi}, tr
   const res = await Promise.all(
     chunked.map(c => queueController.queueTask(QueueSource.SPOTIFY, () => spotifyApi.getAudioFeatures(c)))
   )
-
 
   const audiosFeatures = flatArray(res.map(r => r.audio_features))
   const objs = new Map()

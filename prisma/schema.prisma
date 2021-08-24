@@ -1,0 +1,74 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Artist {
+  hash String @id @db.VarChar(40)
+  name String @db.Text
+
+  spotify_id String? @db.VarChar(22)
+  deezer_id  String? @db.VarChar(32)
+
+  images       String? @db.Text
+  image_colors String? @db.Text
+
+  genres    String? @db.Text
+  cached_at String  @db.VarChar(16)
+}
+
+model Album {
+  hash    String @id @db.VarChar(40)
+  name    String @db.Text
+  artists String @db.Text
+
+  spotify_id String? @db.VarChar(22)
+  deezer_id  String? @db.VarChar(32)
+
+  spotify_cover        String? @db.Text
+  spotify_cover_colors String? @db.Text
+  deezer_cover         String? @db.VarChar(32)
+  deezer_cover_colors  String? @db.Text
+
+  release_date String? @db.VarChar(16)
+  cached_at    String  @db.VarChar(16)
+}
+
+model Track {
+  hash String @id @db.VarChar(40)
+
+  name    String @db.Text
+  artists String @db.Text
+  album   String @db.Text
+
+  spotify_id String? @db.VarChar(22)
+  deezer_id  String? @db.VarChar(32)
+  genius_id  String? @db.VarChar(32)
+
+  covers               String? @db.Text
+  deezer_cover         String? @db.VarChar(32)
+  spotify_cover_colors String? @db.Text
+  deezer_cover_colors  String? @db.Text
+
+  duration       Int?           @db.Integer
+  preview        String?        @db.VarChar(255)
+  track_features TrackFeatures?
+
+  cached_at String @db.VarChar(16)
+}
+
+model TrackFeatures {
+  track_hash String @id @db.VarChar(40)
+  track      Track  @relation(fields: [track_hash], references: [hash])
+
+  energy           Float @db.DoublePrecision
+  danceability     Float @db.DoublePrecision
+  speechiness      Float @db.DoublePrecision
+  instrumentalness Float @db.DoublePrecision
+  valence          Float @db.DoublePrecision
+  tempo            Float @db.DoublePrecision
+}

@@ -1,17 +1,19 @@
-import chalk from "chalk";
-import QueueSource from "../queue/QueueSource";
-import findArtist from "../finders/artist";
-import {chunkArray, flatArray} from "../utils/utils";
-import messages from "../messages";
+import chalk from 'chalk'
+import QueueSource from '../queue/QueueSource'
+import findArtist from '../finders/artist'
+import { chunkArray, flatArray } from '../utils/utils'
+import messages from '../messages'
 
 const route = (ctx) => {
-  const {router, logger} = ctx
+  const { router, logger } = ctx
 
   router.use('/find/artists', async (req, res) => {
-    const {artists} = req.body
-    if (!artists || !Array.isArray(artists)) return res
-      .status(400)
-      .json(messages.MISSING_PARAMS)
+    const { artists } = req.body
+    if (!artists || !Array.isArray(artists)) {
+      return res
+        .status(400)
+        .json(messages.MISSING_PARAMS)
+    }
     const promises = []
 
     const showPopularity = req.query.popularity === 'true'
@@ -34,7 +36,7 @@ const route = (ctx) => {
   })
 }
 
-const getPopularityForArtists = async ({redis, spotifyApi, queueController}, artists) => {
+const getPopularityForArtists = async ({ redis, spotifyApi, queueController }, artists) => {
   const ids = []
   for (const artist of artists) {
     if (artist && artist.spotify) {

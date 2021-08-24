@@ -5,11 +5,18 @@
         "node": true
     },
     "extends": [
-        "standard"
+        "standard",
+        "plugin:@typescript-eslint/recommended"
     ],
     "parserOptions": {
         "ecmaVersion": 11
     },
     "rules": {
-    }
+        "camelcase": "off",
+        "@typescript-eslint/explicit-module-boundary-types": "off"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "parser": "@typescript-eslint/parser"
 }

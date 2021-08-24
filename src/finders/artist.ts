@@ -1,5 +1,5 @@
-import Hashing from "../utils/hashing";
-import QueueSource from "../queue/QueueSource";
+import Hashing from '../utils/hashing'
+import QueueSource from '../queue/QueueSource'
 
 const findArtist = async (
   {
@@ -34,7 +34,6 @@ const findArtist = async (
           redis.client.set(hash, 'NOT_FOUND')
           return null
         }
-
 
         const obj = res.artists.items[0]
         const item = {
