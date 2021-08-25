@@ -10,10 +10,10 @@ export function chunkArray (arr: any[], size: number): any[][] {
   }, [])
 }
 
-export function flatArray (arr: any[]): any[] {
-  return arr.reduce((flat, toFlatten) => {
-    return flat.concat(Array.isArray(toFlatten) ? flatArray(toFlatten) : toFlatten)
-  }, [])
+export function flatArray<T> (arr: T[][]): T[] {
+  return arr.reduce((acc, value) =>
+    acc.concat(value), []
+  )
 }
 
 export function stringifyObject<T extends Record<string, any>> (obj: T): Record<keyof T, string> {
@@ -36,7 +36,7 @@ export function numerifyObject<T extends Record<string, any>> (obj: T): Record<k
   return clone as Record<keyof T, number>
 }
 
-export function normalizeForSearch (str: string): string {
+export function normalizeString (str: string): string {
   return str.toLowerCase().replace(/\s/g, '')
 }
 

@@ -1,74 +1,88 @@
-import chalk from 'chalk'
-import QueueSource from '../queue/QueueSource'
-import findArtist from '../finders/artist'
 import { chunkArray, flatArray } from '../utils/utils'
 import messages from '../messages'
+import { ArtistResponse, Context, Nullable } from '../typings/common'
+import { Signale } from 'signale'
+import { findArtist } from '../finders/artist'
+import { QueueSource } from '../queue/sources'
 
-const route = (ctx) => {
-  const { router, logger } = ctx
+const logger = new Signale({ scope: 'ArtistFinder' })
 
-  router.use('/find/artists', async (req, res) => {
-    const { artists } = req.body
-    if (!artists || !Array.isArray(artists)) {
-      return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
+const route = (ctx: Context) => {
+  ctx.router.use('/find/artists', async (req, res) => {
+    try {
+      const { artists } = req.body
+      if (!artists || !Array.isArray(artists)) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
+      }
+      logger.time('Find artists with length of ' + artists.length)
+
+      const promises = artists.map(a => findArtist(ctx, a))
+
+      let result = await Promise.all(promises)
+
+      const showPopularity = req.query.popularity === 'true'
+
+      if (showPopularity) {
+        result = await getPopularityForArtists(ctx, result)
+      }
+      logger.timeEnd('Find artists with length of ' + artists.length)
+
+      res.json(result)
+    } catch (e) {
+      logger.error(e)
+      res
+        .status(500)
+        .json(messages.INTERNAL_ERROR)
     }
-    const promises = []
-
-    const showPopularity = req.query.popularity === 'true'
-
-    artists.forEach(artist => {
-      logger.silly(chalk.cyan('Scheduling task ' + artist))
-
-      const task = findArtist(ctx, artist)
-
-      promises.push(task)
-    })
-
-    let result = await Promise.all(promises)
-
-    if (showPopularity) {
-      result = await getPopularityForArtists(ctx, result)
-    }
-
-    res.json(result)
   })
 }
 
-const getPopularityForArtists = async ({ redis, spotifyApi, queueController }, artists) => {
-  const ids = []
-  for (const artist of artists) {
-    if (artist && artist.spotify) {
-      const pop = await redis.client.get(`spotify-popularity:${artist.spotify}`)
+const getPopularityForArtists = async ({
+  redis,
+  spotifyApi,
+  queueController
+}: Context, artists: Nullable<ArtistResponse>[]) => {
+  const pops = new Map<string, Nullable<number>>()
+
+  logger.time('Get popularity for artists')
+
+  await Promise.all(artists.map(async artist => {
+    if (artist && artist.spotify_id) {
+      const pop = await redis.getPopularity(artist.spotify_id)
       if (pop) {
-        artist.popularity = Number(pop)
+        artist.popularity = pop
       } else {
-        ids.push(artist.spotify)
+        pops.set(artist.spotify_id, null)
       }
     }
-  }
+  }))
 
-  const chunked = chunkArray(ids, 50)
+  logger.debug(pops)
 
-  const res = await Promise.all(
-    chunked.map(c => queueController.queueTask(QueueSource.SPOTIFY, () => spotifyApi.getArtists(c)))
+  logger.timeEnd('Get popularity for artists')
+
+  const chunked = chunkArray([...pops.keys()], 50)
+
+  const res: SpotifyMultipleArtistsResponse[] = await Promise.all(
+    chunked.map(c => queueController.queueTask<SpotifyMultipleArtistsResponse>(QueueSource.Spotify, () => spotifyApi.getArtists(c)))
   )
 
-  const objs = flatArray(res.map(r => r.artists))
-  for (const artist of objs) {
-    redis.client.set(`spotify-popularity:${artist.id}`, artist.popularity.toString())
+  for (const artist of flatArray(res.map(r => r.artists))) {
+    redis.setPopularity(artist.id, artist.popularity)
+    pops.set(artist.id, artist.popularity)
   }
 
   return artists.map(artist => {
     if (!artist) return null
-    if (artist.popularity) return artist
+    if (artist.popularity || !artist.spotify_id) return artist
 
-    const find = objs.find(a => a.id === artist.spotify)
+    const find = pops.get(artist.spotify_id)
 
     return {
       ...artist,
-      popularity: find ? find.popularity : null
+      popularity: find || null
     }
   })
 }

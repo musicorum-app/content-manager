@@ -15,7 +15,7 @@ class SpotifyAPI {
     })
   }
 
-  async searchArtist (query: string, limit = 1): Promise<SpotifySearchResponse> {
+  async searchArtist (query: string, limit = 15): Promise<SpotifySearchResponse> {
     return this.client.search({
       type: 'artist',
       query: `"${query}"`,
@@ -23,7 +23,7 @@ class SpotifyAPI {
     })
   }
 
-  async searchAlbum (album: string, artist: string, limit = 1): Promise<SpotifySearchResponse> {
+  async searchAlbum (album: string, artist: string, limit = 15): Promise<SpotifySearchResponse> {
     return this.client.search({
       type: 'album',
       query: `"${album}" artist:"${artist}"`,
@@ -32,7 +32,7 @@ class SpotifyAPI {
       .then(r => ({ ...r, releaseDate: r.release_date }))
   }
 
-  async searchTrack (query: string, limit = 1): Promise<SpotifySearchResponse> {
+  async searchTrack (query: string, limit = 15): Promise<SpotifySearchResponse> {
     return this.client.search({
       type: 'track',
       limit,

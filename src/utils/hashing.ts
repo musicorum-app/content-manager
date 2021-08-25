@@ -1,15 +1,10 @@
 import { createHash } from 'crypto'
+import { normalizeString } from './utils'
 
 export function hash (str: string): string {
   const sha = createHash('sha1')
   sha.update(str)
   return sha.digest('hex')
-}
-
-export function normalizeString (str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/ +/g, '')
 }
 
 export function hashArtist (artist: string): string {

@@ -4,6 +4,8 @@
     "deezer": 9
   },
   "expiration": {
+    "notFound": 604800,
+    "popularity": 604800,
     "artists": 604800,
     "tracks": 604800,
     "albums": 604800

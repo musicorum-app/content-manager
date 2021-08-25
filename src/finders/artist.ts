@@ -1,59 +1,112 @@
-import Hashing from '../utils/hashing'
-import QueueSource from '../queue/QueueSource'
+import { hashArtist } from '../utils/hashing'
+import { ArtistResponse, Context } from '../typings/common'
+import { Artist } from '@prisma/client'
+import { doNothing, formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
+import { Signale } from 'signale'
+import { NotFoundError } from '../redis/RedisClient'
+import { QueueSource } from '../queue/sources'
 
-const findArtist = async (
+const logger = new Signale({ scope: 'ArtistFinder' })
+
+export async function findArtist (
   {
     spotifyApi,
-    logger,
     redis,
-    database,
+    prisma,
     queueController
-  }, name) => {
+  }: Context, name: string): Promise<ArtistResponse | null> {
   try {
-    const hash = Hashing.hashArtist(name)
+    const hash = hashArtist(name)
 
-    const exists = await redis.client.exists(hash)
-    if (exists) {
-      const type = await redis.client.type(hash)
-      if (type === 'string') return null
-      return redis.client.hgetall(hash)
+    const exists = await redis.getArtist(hash)
+    if (exists && exists.hash) {
+      return formatDisplayArtist(exists)
     } else {
-      const found = await database.findArtist(hash)
+      const found = await prisma.artist.findUnique({
+        where: {
+          hash
+        }
+      })
 
       if (found) {
-        delete found.cachedAt
         redis.setArtist(hash, found)
-        return found
+        return formatDisplayArtist(found)
       } else {
-        const res = await queueController.queueTask(QueueSource.SPOTIFY, async () => {
-          logger.silly('Task run ' + name)
-          return spotifyApi.searchArtist(name)
-        })
+        logger.time(`Artist task for ${name}`)
+        const res = await queueController.queueTask<SpotifySearchResponse>(
+          QueueSource.Spotify,
+          () => spotifyApi.searchArtist(name)
+        )
 
-        if (res.artists.items.length === 0) {
-          redis.client.set(hash, 'NOT_FOUND')
+        logger.timeEnd(`Artist task for ${name}`)
+
+        if (res.artists?.items.length === 0) {
+          redis.setAsNotFound(hash)
           return null
         }
 
-        const obj = res.artists.items[0]
-        const item = {
-          hash,
-          name: obj.name,
-          spotify: obj.id,
-          image: obj.images[0].url
+        let selected = res.artists?.items.find(a => normalizeString(a.name) === normalizeString(name)) as SpotifyArtist
+
+        if (!selected) {
+          selected = res.artists?.items[0] as SpotifyArtist
         }
 
-        redis.client.set(`spotify-popularity:${item.spotify}`, obj.popularity)
+        const item: Artist = {
+          hash,
+          name: selected.name,
+          spotify_id: selected.id,
+          deezer_id: null,
+          spotify_images: formatList(selected.images.map(i => i.url)),
+          spotify_images_colors: null,
+          deezer_images: null,
+          deezer_images_colors: null,
+          genres: formatList(selected.genres),
+          cached_at: (new Date().getTime()).toString()
+        }
+
         redis.setArtist(hash, item)
-        database.insertArtist(item)
-        return item
+        redis.setPopularity(selected.id, selected.popularity)
+
+        prisma.artist.create({
+          data: item
+        })
+          .then(() => doNothing())
+          .catch(err => logger.error(err))
+        return formatDisplayArtist(item)
       }
     }
   } catch (e) {
-    console.error(e)
-    logger.error(e.toString())
+    if (e instanceof NotFoundError) {
+      return null
+    }
+    logger.error(e)
     return null
   }
 }
 
-export default findArtist
+function formatDisplayArtist ({
+  hash,
+  name,
+  spotify_id,
+  deezer_id,
+  spotify_images,
+  spotify_images_colors,
+  deezer_images,
+  deezer_images_colors,
+  genres,
+  cached_at
+}: Artist): ArtistResponse {
+  return {
+    hash,
+    name,
+    spotify_id: valueOrNull(spotify_id),
+    deezer_id: valueOrNull(deezer_id),
+    spotify_images: formatListBack(spotify_images),
+    spotify_images_colors: formatListBack(spotify_images_colors),
+    deezer_images: formatListBack(deezer_images),
+    deezer_images_colors: formatListBack(deezer_images_colors),
+    genres: formatListBack(genres),
+    popularity: null,
+    cached_at: cached_at
+  }
+}

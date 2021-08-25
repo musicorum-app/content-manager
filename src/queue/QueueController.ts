@@ -1,7 +1,6 @@
 import crypto from 'crypto'
 import { Signale } from 'signale'
 import config from '../../config.json'
-import { Config } from '../typings'
 import { QueueSource } from './sources'
 
 export default class QueueController {
@@ -31,7 +30,7 @@ export default class QueueController {
   private tick () {
     Object.values(QueueSource)
       .forEach((source: QueueSource) => {
-        const tps = (config as Config).sources[source]
+        const tps = config.sources[source]
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const queue = this.queue.get(source)!
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -85,6 +84,10 @@ export default class QueueController {
         resolve,
         reject
       })
+
+      if (this.runningQueue.size === 0 && this.queue.size === 0) {
+        this.tick()
+      }
     })
   }
 

@@ -27,6 +27,9 @@ const route = (ctx: Context) => {
       res.json(result)
     } catch (e) {
       logger.error(e)
+      res
+        .status(500)
+        .json(messages.INTERNAL_ERROR)
     }
   })
 }

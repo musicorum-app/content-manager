@@ -1,9 +1,10 @@
-import { Album, Prisma, PrismaClient } from '@prisma/client'
+import { Album } from '@prisma/client'
 import { Signale } from 'signale'
 import { QueueSource } from '../queue/sources'
+import { NotFoundError } from '../redis/RedisClient'
 import { AlbumRequestItem, AlbumResponse, Context } from '../typings/common'
 import { hashAlbum } from '../utils/hashing'
-import { doNothing, formatList, formatListBack, normalizeForSearch, valueOrNull } from '../utils/utils'
+import { doNothing, formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
 
 const logger = new Signale({ scope: 'AlbumFinder' })
 
@@ -39,9 +40,12 @@ export async function findAlbum (
 
         logger.timeEnd(`Album task for ${name}`)
 
-        if (res.albums?.items.length === 0) return null
+        if (res.albums?.items.length === 0) {
+          redis.setAsNotFound(hash)
+          return null
+        }
 
-        let selected = res.albums?.items.find(a => normalizeForSearch(a.name) === normalizeForSearch(name)) as SpotifyAlbum
+        let selected = res.albums?.items.find(a => normalizeString(a.name) === normalizeString(name)) as SpotifyAlbum
 
         if (!selected) {
           selected = res.albums?.items[0] as SpotifyAlbum
@@ -71,6 +75,9 @@ export async function findAlbum (
       }
     }
   } catch (e) {
+    if (e instanceof NotFoundError) {
+      return null
+    }
     logger.error(e)
     return null
   }
@@ -96,10 +103,10 @@ function formatDisplayAlbum ({
     release_date: valueOrNull(release_date),
     spotify_id: valueOrNull(spotify_id),
     deezer_id: valueOrNull(deezer_id),
-    cached_at: cached_at,
     spotify_covers: formatListBack(spotify_covers),
     spotify_covers_colors: formatListBack(spotify_covers_colors),
     deezer_covers: formatListBack(deezer_covers),
-    deezer_covers_colors: formatListBack(deezer_covers_colors)
+    deezer_covers_colors: formatListBack(deezer_covers_colors),
+    cached_at: cached_at
   }
 }
