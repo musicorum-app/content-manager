@@ -6,8 +6,10 @@ import QueueController from './queue/QueueController'
 import RedisClient from './redis/RedisClient'
 import SpotifyAPI from './apis/Spotify'
 // import routes from './routes'
-import { Context } from './typings'
 import messages from './messages'
+import { Context } from './typings/common'
+import { PrismaClient } from '@prisma/client'
+import routes from './routes'
 
 export default class Main {
   private logger: Signale
@@ -15,6 +17,7 @@ export default class Main {
   public queueController: QueueController
   public redis: RedisClient
   public spotifyApi: SpotifyAPI
+  public prisma: PrismaClient
 
   constructor () {
     this.logger = new Signale({ scope: 'Main' })
@@ -23,6 +26,7 @@ export default class Main {
     this.queueController = new QueueController()
     this.redis = new RedisClient()
     this.spotifyApi = new SpotifyAPI()
+    this.prisma = new PrismaClient()
   }
 
   async init () {
@@ -54,7 +58,7 @@ export default class Main {
 
   private async initStuff () {
     await this.queueController.init()
-    // await this.redis.init()
+    await this.redis.init()
   }
 
   private async loadRoutes () {
@@ -63,12 +67,13 @@ export default class Main {
       router,
       queueController: this.queueController,
       redis: this.redis,
-      spotifyApi: this.spotifyApi
+      spotifyApi: this.spotifyApi,
+      prisma: this.prisma
     }
 
-    // for (const route of routes) {
-    //   route(context)
-    // }
+    for (const route of routes) {
+      route(context)
+    }
 
     return router
   }

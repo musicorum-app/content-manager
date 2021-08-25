@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import { Signale } from 'signale'
 import config from '../../config.json'
 import { Config } from '../typings'
-import { QueueSource, QueueSources } from './sources'
+import { QueueSource } from './sources'
 
 export default class QueueController {
   private logger: Signale
@@ -39,7 +39,7 @@ export default class QueueController {
         const ableToDo = tps - running.size
 
         if (queue.size > 0) {
-          this.logger.debug('Actual queue size is %d/%d for %s', running.size, queue.size, queue)
+          this.logger.debug('Actual queue size is %d/%d for %s', running.size, queue.size, source)
         }
 
         if (queue.size <= ableToDo) {
@@ -63,20 +63,22 @@ export default class QueueController {
   }
 
   public async run (id: string, source: QueueSource, { runnable, resolve, reject }: Task) {
-    this.logger.debug('Running task %s from source &s', id, source)
+    this.logger.time('Task ' + id)
     runnable()
       .then(result => {
-        this.logger.debug('Task %d done', id)
+        this.logger.timeEnd('Task ' + id)
         resolve(result)
-        this.runningQueue.get(source)?.delete(id)
       })
       .catch(e => {
+        this.logger.timeEnd('Task ' + id)
         reject(e)
+      })
+      .finally(() => {
         this.runningQueue.get(source)?.delete(id)
       })
   }
 
-  public async queueTask (source: QueueSource, runnable: TaskRunnable) {
+  public async queueTask<T> (source: QueueSource, runnable: TaskRunnable): Promise<T> {
     return new Promise((resolve, reject) => {
       this.queue.get(source)?.set(this.createRandomId(), {
         runnable,

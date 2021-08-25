@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // Deezer
 
-type DeezerTrack = {
+interface DeezerTrack {
   id: number
   title: string
   duration: number
@@ -13,42 +14,19 @@ type DeezerTrack = {
   }
 }
 
-type DeezerTrackSearch = {
+interface DeezerTrackSearch {
   data: DeezerTrack[]
 }
 
 // Spotify
 
-declare module 'node-spotify-api' {
-
-  type SpotifyClientConstructor = {
-    id: string,
-    secret: string
-  }
-
-  type SpotifySearchParameters = {
-    type: string,
-    limit: number,
-    query: string
-  }
-
-  declare class SpotifyClient {
-    constructor(params: SpotifyClientConstructor)
-
-    request(url: string): Promise<any>
-    search(params: SpotifySearchParameters): Promise<any>
-  }
-
-  export = SpotifyClient
-}
-
-type SpotifyImages = {
+interface SpotifyImages {
   height: number
   width: number
   url: string
 }
 
-type SpotifyArtist = {
+interface SpotifyArtist {
   id: string
   name: string
   popularity: number
@@ -56,7 +34,7 @@ type SpotifyArtist = {
   images: SpotifyImages[]
 }
 
-type SpotifyAlbum = {
+interface SpotifyAlbum {
   id: string
   name: string
   release_date?: string
@@ -64,10 +42,10 @@ type SpotifyAlbum = {
     id: string
     name: string
   }[]
-  images: SpotifyImage[]
+  images: SpotifyImages[]
 }
 
-type SpotifyTrack = {
+interface SpotifyTrack {
   id: string
   name: string
   popularity: number
@@ -79,7 +57,7 @@ type SpotifyTrack = {
   }[]
 }
 
-type SpotifySearchResponse = {
+interface SpotifySearchResponse {
   artists?: {
     items: SpotifyArtist[]
   }
@@ -91,11 +69,11 @@ type SpotifySearchResponse = {
   }
 }
 
-type SpotifyMultipleArtistsResponse = {
+interface SpotifyMultipleArtistsResponse {
   artists: SpotifyArtist[]
 }
 
-type SpotifyAudioFeatures = {
+interface SpotifyAudioFeatures {
   danceability: number
   energy: number
   key: number

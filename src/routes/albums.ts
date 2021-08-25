@@ -1,6 +1,10 @@
 import messages from '../messages'
-import findAlbum from '../finders/album'
-import { Context } from '../typings'
+import { Context } from '../typings/common'
+import { Album, Track } from '@prisma/client'
+import { findAlbum } from '../finders/album'
+import { Signale } from 'signale'
+
+const logger = new Signale({ scope: 'AlbumFinder' })
 
 const route = (ctx: Context) => {
   ctx.router.use('/find/albums', async (req, res) => {
@@ -12,16 +16,13 @@ const route = (ctx: Context) => {
           .status(400)
           .json(messages.MISSING_PARAMS)
       }
+      logger.time('Find albums with length of ' + albums.length)
 
-      const promises: Promise<any>[] = []
-
-      albums.forEach(track => {
-        const task = findAlbum(ctx, track)
-
-        promises.push(task)
-      })
+      const promises = albums.map(a => findAlbum(ctx, a))
 
       const result = await Promise.all(promises)
+
+      logger.timeEnd('Find albums with length of ' + albums.length)
 
       res.json(result)
     } catch (e) {

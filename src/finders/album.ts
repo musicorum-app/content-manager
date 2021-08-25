@@ -1,51 +1,105 @@
-import { Context } from '../typings'
+import { Album, Prisma, PrismaClient } from '@prisma/client'
+import { Signale } from 'signale'
+import { QueueSource } from '../queue/sources'
+import { AlbumRequestItem, AlbumResponse, Context } from '../typings/common'
 import { hashAlbum } from '../utils/hashing'
+import { doNothing, formatList, formatListBack, normalizeForSearch, valueOrNull } from '../utils/utils'
 
-const findAlbum = async (
+const logger = new Signale({ scope: 'AlbumFinder' })
+
+export async function findAlbum (
   {
     spotifyApi,
     redis,
-    queueController
-  }: Context, { name, artist }) => {
+    queueController,
+    prisma
+  }: Context, { name, artist }: AlbumRequestItem): Promise<AlbumResponse | null> {
   try {
     const hash = hashAlbum(name, artist)
 
-    const exists = await redis.client.exists(hash)
-    if (exists) {
-      return redis.client.hgetall(hash)
+    const exists = await redis.getAlbum(hash)
+    if (exists && exists.hash) {
+      return formatDisplayAlbum(exists)
     } else {
-      const found = await database.findAlbum(hash)
+      const found = await prisma.album.findUnique({
+        where: {
+          hash
+        }
+      })
 
       if (found) {
-        delete found.cachedAt
         redis.setAlbum(hash, found)
-        return found
+        return formatDisplayAlbum(found)
       } else {
-        const res = await queueController.queueTask(QueueSource.SPOTIFY, async () => {
-          logger.silly('Task run ' + name)
-          return spotifyApi.searchAlbum(name, artist)
-        })
+        logger.time(`Album task for ${name}`)
+        const res = await queueController.queueTask<SpotifySearchResponse>(
+          QueueSource.Spotify,
+          () => spotifyApi.searchAlbum(name, artist)
+        )
 
-        if (res.albums.items.length === 0) return null
+        logger.timeEnd(`Album task for ${name}`)
 
-        const obj = res.albums.items[0]
-        const item = {
+        if (res.albums?.items.length === 0) return null
+
+        let selected = res.albums?.items.find(a => normalizeForSearch(a.name) === normalizeForSearch(name)) as SpotifyAlbum
+
+        if (!selected) {
+          selected = res.albums?.items[0] as SpotifyAlbum
+        }
+
+        const item: Album = {
           hash,
-          name: obj.name,
-          spotify: obj.id,
-          cover: obj.images[0].url
+          name: selected.name,
+          artists: formatList(selected.artists.map(a => a.name)),
+          spotify_id: selected.id,
+          spotify_covers: formatList(selected.images.map(i => i.url)),
+          cached_at: (new Date().getTime()).toString(),
+          deezer_covers: null,
+          deezer_covers_colors: null,
+          deezer_id: null,
+          release_date: selected.release_date || null,
+          spotify_covers_colors: null
         }
 
         redis.setAlbum(hash, item)
-        database.insertAlbum(item)
-        return item
+        prisma.album.create({
+          data: item
+        })
+          .then(() => doNothing()) // Nothing function in order to trigger the async function but without having to block the function with await
+          .catch(err => logger.error(err))
+        return formatDisplayAlbum(item)
       }
     }
   } catch (e) {
-    console.error(e)
-    logger.error(e.toString())
+    logger.error(e)
     return null
   }
 }
 
-export default findAlbum
+function formatDisplayAlbum ({
+  hash,
+  name,
+  artists,
+  release_date,
+  spotify_id,
+  spotify_covers,
+  spotify_covers_colors,
+  deezer_covers,
+  deezer_covers_colors,
+  deezer_id,
+  cached_at
+}: Album): AlbumResponse {
+  return {
+    hash: hash,
+    name: name,
+    artists: formatListBack(artists),
+    release_date: valueOrNull(release_date),
+    spotify_id: valueOrNull(spotify_id),
+    deezer_id: valueOrNull(deezer_id),
+    cached_at: cached_at,
+    spotify_covers: formatListBack(spotify_covers),
+    spotify_covers_colors: formatListBack(spotify_covers_colors),
+    deezer_covers: formatListBack(deezer_covers),
+    deezer_covers_colors: formatListBack(deezer_covers_colors)
+  }
+}

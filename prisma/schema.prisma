@@ -14,8 +14,10 @@ model Artist {
   spotify_id String? @db.VarChar(22)
   deezer_id  String? @db.VarChar(32)
 
-  images       String? @db.Text
-  image_colors String? @db.Text
+  spotify_images       String? @db.Text
+  spotify_images_colors String? @db.Text
+  deezer_images       String? @db.Text
+  deezer_images_colors String? @db.Text
 
   genres    String? @db.Text
   cached_at String  @db.VarChar(16)
@@ -29,10 +31,10 @@ model Album {
   spotify_id String? @db.VarChar(22)
   deezer_id  String? @db.VarChar(32)
 
-  spotify_cover        String? @db.Text
-  spotify_cover_colors String? @db.Text
-  deezer_cover         String? @db.VarChar(32)
-  deezer_cover_colors  String? @db.Text
+  spotify_covers        String? @db.Text
+  spotify_covers_colors String? @db.Text
+  deezer_covers         String? @db.Text
+  deezer_covers_colors  String? @db.Text
 
   release_date String? @db.VarChar(16)
   cached_at    String  @db.VarChar(16)
@@ -49,10 +51,10 @@ model Track {
   deezer_id  String? @db.VarChar(32)
   genius_id  String? @db.VarChar(32)
 
-  covers               String? @db.Text
-  deezer_cover         String? @db.VarChar(32)
-  spotify_cover_colors String? @db.Text
-  deezer_cover_colors  String? @db.Text
+  spotify_covers        String? @db.Text
+  spotify_covers_colors String? @db.Text
+  deezer_covers         String? @db.Text
+  deezer_covers_colors  String? @db.Text
 
   duration       Int?           @db.Integer
   preview        String?        @db.VarChar(255)

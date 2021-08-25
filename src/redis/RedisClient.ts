@@ -1,16 +1,18 @@
 import { Tedis } from 'tedis'
 import { Signale } from 'signale'
 import config from '../../config.json'
+import { Album, Artist, Track } from '@prisma/client'
+import { stringifyObject } from '../utils/utils'
 
 export default class RedisClient {
   private logger: Signale
-  private client?: Tedis
+  public client?: Tedis
 
   constructor () {
     this.logger = new Signale({ scope: 'Redis' })
   }
 
-  async init (): Promise<void> {
+  public async init (): Promise<void> {
     this.logger.info('Starting service')
 
     return new Promise((resolve, reject) => {
@@ -31,33 +33,33 @@ export default class RedisClient {
     })
   }
 
-  async setArtist (key: string, artist: any) {
-    await this.client?.hmset(key, artist)
+  public async setArtist (key: string, artist: Artist) {
+    await this.client?.hmset(key, stringifyObject(artist))
     await this.client?.expire(key, config.expiration.artists)
   }
 
-  async setAlbum (key: string, album: any) {
-    await this.client?.hmset(key, album)
+  public async setAlbum (key: string, album: Album) {
+    await this.client?.hmset(key, stringifyObject(album))
     await this.client?.expire(key, config.expiration.albums)
   }
 
-  async setTrack (key: string, track: any) {
-    await this.client?.hmset(key, {
-      ...track,
-      duration: track.duration ? track.duration.toString() : '0',
-      preview: track.preview || 'null',
-      deezer: track.deezer || 'null'
-    })
+  public async setTrack (key: string, track: Track) {
+    await this.client?.hmset(key, stringifyObject(track))
     await this.client?.expire(key, config.expiration.tracks)
   }
 
-  public async getTrack (hash: string) {
+  public async getTrack (hash: string): Promise<Track | null> {
     const track = await this.client?.hgetall(hash)
-    return !track ? null : {
-      ...track,
-      duration: parseInt(track.duration),
-      preview: track.preview && track.preview !== 'null' ? track.preview : null,
-      deezer: track.deezer && track.deezer !== 'null' ? track.deezer : null
-    }
+    return track ? track as unknown as Track : null
+  }
+
+  public async getAlbum (hash: string): Promise<Album | null> {
+    const album = await this.client?.hgetall(hash)
+    return album ? album as unknown as Album : null
+  }
+
+  public async getArtist (hash: string): Promise<Artist | null> {
+    const artist = await this.client?.hgetall(hash)
+    return artist ? artist as unknown as Artist : null
   }
 }
