@@ -29,6 +29,7 @@ export default class RedisClient {
       this.client.on('error', e => {
         reject(e)
         this.logger.error('Error connecting to redis', e)
+        process.exit(1)
       })
     })
   }
