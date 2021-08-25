@@ -1,16 +1,14 @@
-import Hashing from '../utils/hashing'
-import QueueSource from '../queue/QueueSource'
+import { Context } from '../typings'
+import { hashAlbum } from '../utils/hashing'
 
 const findAlbum = async (
   {
     spotifyApi,
-    logger,
     redis,
-    database,
     queueController
-  }, { name, artist }) => {
+  }: Context, { name, artist }) => {
   try {
-    const hash = Hashing.hashAlbum(name, artist)
+    const hash = hashAlbum(name, artist)
 
     const exists = await redis.client.exists(hash)
     if (exists) {

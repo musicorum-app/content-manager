@@ -1,13 +1,9 @@
 import messages from '../messages'
 import findAlbum from '../finders/album'
+import { Context } from '../typings'
 
-const route = (ctx) => {
-  const {
-    router,
-    logger
-  } = ctx
-
-  router.use('/find/albums', async (req, res) => {
+const route = (ctx: Context) => {
+  ctx.router.use('/find/albums', async (req, res) => {
     try {
       const { albums } = req.body
 
@@ -17,7 +13,7 @@ const route = (ctx) => {
           .json(messages.MISSING_PARAMS)
       }
 
-      const promises = []
+      const promises: Promise<any>[] = []
 
       albums.forEach(track => {
         const task = findAlbum(ctx, track)

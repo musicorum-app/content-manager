@@ -54,7 +54,7 @@ export default class Main {
 
   private async initStuff () {
     await this.queueController.init()
-    await this.redis.init()
+    // await this.redis.init()
   }
 
   private async loadRoutes () {
