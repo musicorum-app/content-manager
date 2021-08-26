@@ -1,10 +1,18 @@
-import QueueSource from '../queue/QueueSource'
 import { chunkArray, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
 import messages from '../messages'
-import findTrack from '../finders/track'
+import findTrack, { formatDisplayTrack } from '../finders/track'
+import { Context, Nullable, TrackResponse } from '../typings/common'
+import { Signale } from 'signale'
+import { TrackFeatures } from '@prisma/client'
 
-const route = (ctx) => {
-  const { router, logger, redis, database } = ctx
+const logger = new Signale({ scope: 'TrackFinder' })
+
+const route = (ctx: Context) => {
+  const {
+    router,
+    redis,
+    prisma
+  } = ctx
 
   router.post('/find/tracks', async (req, res) => {
     try {
@@ -19,13 +27,9 @@ const route = (ctx) => {
       const showPreview = req.query.preview === 'true'
       const needsDeezer = req.query.deezer === 'true'
 
-      const promises = []
+      logger.time('Find tracks with length of ' + tracks.length)
 
-      tracks.forEach(track => {
-        const task = findTrack(ctx, track, showPreview, needsDeezer)
-
-        promises.push(task)
-      })
+      const promises = tracks.map(t => findTrack(ctx, t, showPreview, needsDeezer))
 
       let result = await Promise.all(promises)
 
@@ -33,10 +37,11 @@ const route = (ctx) => {
         result = await handleAnalysis(ctx, result)
       }
 
+      logger.timeEnd('Find tracks with length of ' + tracks.length)
+
       res.json(result)
     } catch (e) {
       logger.error(e)
-      console.error(e)
       res.status(500).json(messages.INTERNAL_ERROR)
     }
   })
@@ -48,7 +53,7 @@ const route = (ctx) => {
         .status(400)
         .json(messages.MISSING_PARAMS)
     }
-    const tracks = tracksQuery.split(',')
+    const tracks = tracksQuery.toString().split(',')
 
     if (!tracks || !Array.isArray(tracks)) {
       return res
@@ -56,32 +61,56 @@ const route = (ctx) => {
         .json(messages.MISSING_PARAMS)
     }
 
-    const result = await Promise.all(tracks.map(async track => {
+    let result = await Promise.all(tracks.map(async track => {
       try {
-        const cache = await redis.client.hgetall(track)
-        if (Object.keys(cache).length) {
-          return cache
+        const cache = await redis.getTrack(track)
+        if (cache) {
+          return formatDisplayTrack(cache)
         } else {
-          return database.findTrack(track)
+          const found = await prisma.track.findUnique({
+            where: { hash: track }
+          })
+          return found ? formatDisplayTrack(found) : null
         }
       } catch (e) {
-        console.error(e)
+        logger.error(e)
         return null
       }
     }))
 
+    if (req.query.analysis === 'true') {
+      result = await handleAnalysis(ctx, result)
+    }
+
     res.json({
-      tracks: result.map(r => {
-        if (!r) return null
-        if (r.duration) r.duration = parseInt(r.duration + '')
-        return r
-      })
+      tracks: result
     })
   })
 }
 
-const handleAnalysis = async ({ database, redis, queueController, spotifyApi }, tracks) => {
-  const ids = []
+async function handleAnalysis (
+  { prisma, redis, queueController, spotifyApi }: Context,
+  tracks: Nullable<TrackResponse>[]
+): Promise<TrackResponse[]> {
+  const analysis = new Map<string, Nullable<TrackFeatures>>()
+
+  await Promise.all(tracks.map(async track => {
+    if (!track) {
+      return null
+    }
+
+    const hash = track.hash
+    const cached = await redis.getTrackFeatures(hash)
+
+    if (cached) {
+      analysis.set(hash, cached)
+    } else {
+      const features = await spotifyApi.getAudioFeaturesForTrack(track.spotify_id)
+      analysis.set(hash, features)
+      await redis.setTrackFeatures(hash, features)
+    }
+  }))
+
   for (const track of tracks) {
     if (track && track.spotify) {
       const exists = await redis.client.exists(`track-analysis:${track.spotify}`)

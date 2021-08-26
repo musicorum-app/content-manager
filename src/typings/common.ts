@@ -42,7 +42,7 @@ export interface AlbumResponse {
   spotify_covers: string[]
   spotify_covers_colors: string[]
 
-  deezer_covers: string[]
+  deezer_cover: Nullable<string>
   deezer_covers_colors: string[]
 
   cached_at: string
@@ -57,7 +57,7 @@ export interface ArtistResponse {
 
   spotify_images: string[]
   spotify_images_colors: string[]
-  deezer_images: string[]
+  deezer_image: Nullable<string>
   deezer_images_colors: string[]
 
   genres: string[]
@@ -65,10 +65,16 @@ export interface ArtistResponse {
   cached_at: string
 }
 
+export interface TrackRequestItem {
+  name: string
+  artist: string
+  album?: string
+}
+
 export interface TrackResponse {
   hash: string
   name: string
-  artists: string
+  artists: string[]
   album: string
 
   spotify_id: Nullable<string>
@@ -77,7 +83,7 @@ export interface TrackResponse {
 
   spotify_covers: string[]
   spotify_covers_colors: string[]
-  deezer_covers: string[]
+  deezer_cover: Nullable<string>
   deezer_covers_colors: string[]
 
   duration: Nullable<number>

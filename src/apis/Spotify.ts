@@ -29,7 +29,6 @@ class SpotifyAPI {
       query: `"${album}" artist:"${artist}"`,
       limit
     })
-      .then(r => ({ ...r, releaseDate: r.release_date }))
   }
 
   async searchTrack (query: string, limit = 15): Promise<SpotifySearchResponse> {
@@ -38,7 +37,6 @@ class SpotifyAPI {
       limit,
       query
     })
-      .then(r => ({ ...r, previewUrl: r.preview_url }))
   }
 
   async getArtists (ids: string[]): Promise<SpotifyMultipleArtistsResponse> {
@@ -48,7 +46,6 @@ class SpotifyAPI {
   async getAudioFeatures (ids: string[]): Promise<SpotifyAudioFeatures[]> {
     return this.client.request(API_URL + '/audio-features?ids=' + ids.join(','))
       .then(r => r.audio_features)
-      .then(r => r.map((a: Record<string, unknown>) => ({ ...a, durationMs: a.duration_ms })))
   }
 }
 

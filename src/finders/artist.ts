@@ -58,7 +58,7 @@ export async function findArtist (
           deezer_id: null,
           spotify_images: formatList(selected.images.map(i => i.url)),
           spotify_images_colors: null,
-          deezer_images: null,
+          deezer_image: null,
           deezer_images_colors: null,
           genres: formatList(selected.genres),
           cached_at: (new Date().getTime()).toString()
@@ -91,7 +91,7 @@ function formatDisplayArtist ({
   deezer_id,
   spotify_images,
   spotify_images_colors,
-  deezer_images,
+  deezer_image,
   deezer_images_colors,
   genres,
   cached_at
@@ -103,10 +103,10 @@ function formatDisplayArtist ({
     deezer_id: valueOrNull(deezer_id),
     spotify_images: formatListBack(spotify_images),
     spotify_images_colors: formatListBack(spotify_images_colors),
-    deezer_images: formatListBack(deezer_images),
+    deezer_image: valueOrNull(deezer_image),
     deezer_images_colors: formatListBack(deezer_images_colors),
     genres: formatListBack(genres),
     popularity: null,
-    cached_at: cached_at
+    cached_at
   }
 }

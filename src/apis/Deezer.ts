@@ -9,12 +9,10 @@ class DeezerAPI {
     return this.request('search/track', {
       q
     })
-      .then(r => ({ ...r, md5Image: r.md5_image }))
   }
 
   static getTrack (id: string): Promise<DeezerTrack> {
     return this.request(`track/${id}`)
-      .then(r => ({ ...r, md5Image: r.md5_image }))
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -7,7 +7,7 @@ interface DeezerTrack {
   duration: number
   link: string
   preview: string
-  md5Image: string
+  md5_image: string
   artist: {
     id: number
     name: string
@@ -49,7 +49,8 @@ interface SpotifyTrack {
   id: string
   name: string
   popularity: number
-  previewUrl?: string
+  preview_url?: string,
+  duration_ms: number,
   album: SpotifyAlbum
   artists: {
     id: string

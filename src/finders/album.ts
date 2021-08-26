@@ -58,7 +58,7 @@ export async function findAlbum (
           spotify_id: selected.id,
           spotify_covers: formatList(selected.images.map(i => i.url)),
           cached_at: (new Date().getTime()).toString(),
-          deezer_covers: null,
+          deezer_cover: null,
           deezer_covers_colors: null,
           deezer_id: null,
           release_date: selected.release_date || null,
@@ -91,7 +91,7 @@ function formatDisplayAlbum ({
   spotify_id,
   spotify_covers,
   spotify_covers_colors,
-  deezer_covers,
+  deezer_cover,
   deezer_covers_colors,
   deezer_id,
   cached_at
@@ -105,7 +105,7 @@ function formatDisplayAlbum ({
     deezer_id: valueOrNull(deezer_id),
     spotify_covers: formatListBack(spotify_covers),
     spotify_covers_colors: formatListBack(spotify_covers_colors),
-    deezer_covers: formatListBack(deezer_covers),
+    deezer_cover: valueOrNull(deezer_cover),
     deezer_covers_colors: formatListBack(deezer_covers_colors),
     cached_at: cached_at
   }

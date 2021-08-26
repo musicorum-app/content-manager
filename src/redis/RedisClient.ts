@@ -89,6 +89,14 @@ export default class RedisClient {
     if (type === 'string' && (await this.client?.get(hash)) === notFoundValue) throw new NotFoundError()
   }
 
+  public chechIfIsNotFound (hash: string): Promise<boolean> {
+    return new Promise(resolve => {
+      this.checkIfIsNull(hash)
+        .then(() => resolve(false))
+        .catch(() => resolve(true))
+    })
+  }
+
   public async setAsNotFound (hash: string) {
     await this.client?.set(hash, notFoundValue)
     await this.client?.expire(hash, config.expiration.notFound)
