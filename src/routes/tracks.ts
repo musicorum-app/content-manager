@@ -112,7 +112,7 @@ async function handleAnalysis (
   }))
 
   for (const track of tracks) {
-    if (track && track.spotify) {
+    if (track && track.spotify_id) {
       const exists = await redis.client.exists(`track-analysis:${track.spotify}`)
       if (exists) {
         track.analysis = numerifyObject(await redis.client.hgetall(`track-analysis:${track.spotify}`))
