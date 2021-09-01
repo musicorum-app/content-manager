@@ -100,7 +100,16 @@ async function handleFeatures (
     if (!track.spotify_id) return null
 
     const { hash } = track
-    const cached = await redis.getTrackFeatures(hash)
+    let cached = await redis.getTrackFeatures(hash)
+
+    if (!cached || !cached.danceability) {
+      cached = await prisma.trackFeatures.findUnique({
+        where: {
+          track_hash: hash
+        }
+      })
+      console.log(cached, hash)
+    }
 
     if (cached && cached.danceability) {
       track.features = {
