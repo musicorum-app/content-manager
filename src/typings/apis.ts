@@ -86,5 +86,4 @@ interface SpotifyAudioFeatures {
   liveness: number
   valence: number
   tempo: number
-  durationMs: number
 }

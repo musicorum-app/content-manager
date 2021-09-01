@@ -1,8 +1,9 @@
 import { Tedis } from 'tedis'
 import { Signale } from 'signale'
 import config from '../../config.json'
-import { Album, Artist, Track } from '@prisma/client'
+import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
+import { Nullable } from '../typings/common'
 
 const notFoundValue = '␀'
 
@@ -51,22 +52,33 @@ export default class RedisClient {
     await this.client?.expire(key, config.expiration.tracks)
   }
 
+  public async setTrackFeatures (key: string, features: TrackFeatures) {
+    await this.client?.hmset(key + ':features', stringifyObject(features))
+    await this.client?.expire(key + ':features', config.expiration.tracks)
+  }
+
   public async getTrack (hash: string): Promise<Track | null> {
     await this.checkIfIsNull(hash)
     const track = await this.client?.hgetall(hash)
-    return track ? track as unknown as Track : null
+    return track ? this.convertNulls(track) as unknown as Track : null
+  }
+
+  public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {
+    await this.checkIfIsNull(hash + ':features')
+    const features = await this.client?.hgetall(hash + ':features')
+    return features ? this.convertNulls(features) as unknown as TrackFeatures : null
   }
 
   public async getAlbum (hash: string): Promise<Album | null> {
     await this.checkIfIsNull(hash)
     const album = await this.client?.hgetall(hash)
-    return album ? album as unknown as Album : null
+    return album ? this.convertNulls(album) as unknown as Album : null
   }
 
   public async getArtist (hash: string): Promise<Artist | null> {
     await this.checkIfIsNull(hash)
     const artist = await this.client?.hgetall(hash)
-    return artist ? artist as unknown as Artist : null
+    return artist ? this.convertNulls(artist) as unknown as Artist : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {
@@ -100,6 +112,14 @@ export default class RedisClient {
   public async setAsNotFound (hash: string) {
     await this.client?.set(hash, notFoundValue)
     await this.client?.expire(hash, config.expiration.notFound)
+  }
+
+  public convertNulls (obj: Record<string, unknown>): Record<string, Nullable<unknown>> {
+    const newObj = {} as Record<string, unknown>
+    for (const [k, v] of Object.entries(obj)) {
+      newObj[k] = (v === 'null') ? null : v
+    }
+    return newObj
   }
 }
 

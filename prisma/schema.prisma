@@ -67,10 +67,13 @@ model TrackFeatures {
   track_hash String @id @db.VarChar(40)
   track      Track  @relation(fields: [track_hash], references: [hash])
 
-  energy           Float @db.DoublePrecision
   danceability     Float @db.DoublePrecision
+  energy           Float @db.DoublePrecision
+  loudness         Float @db.DoublePrecision
   speechiness      Float @db.DoublePrecision
+  acousticness     Float @db.DoublePrecision
   instrumentalness Float @db.DoublePrecision
+  liveness         Float @db.DoublePrecision
   valence          Float @db.DoublePrecision
   tempo            Float @db.DoublePrecision
 }

@@ -1,9 +1,10 @@
-import { chunkArray, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
+import { chunkArray, doNothing, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
 import messages from '../messages'
 import findTrack, { formatDisplayTrack } from '../finders/track'
-import { Context, Nullable, TrackResponse } from '../typings/common'
+import { Context, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
 import { Signale } from 'signale'
 import { TrackFeatures } from '@prisma/client'
+import { QueueSource } from '../queue/sources'
 
 const logger = new Signale({ scope: 'TrackFinder' })
 
@@ -33,8 +34,8 @@ const route = (ctx: Context) => {
 
       let result = await Promise.all(promises)
 
-      if (req.query.analysis === 'true') {
-        result = await handleAnalysis(ctx, result)
+      if (req.query.features === 'true') {
+        result = await handleFeatures(ctx, result)
       }
 
       logger.timeEnd('Find tracks with length of ' + tracks.length)
@@ -78,8 +79,8 @@ const route = (ctx: Context) => {
       }
     }))
 
-    if (req.query.analysis === 'true') {
-      result = await handleAnalysis(ctx, result)
+    if (req.query.features === 'true') {
+      result = await handleFeatures(ctx, result)
     }
 
     res.json({
@@ -88,81 +89,104 @@ const route = (ctx: Context) => {
   })
 }
 
-async function handleAnalysis (
+async function handleFeatures (
   { prisma, redis, queueController, spotifyApi }: Context,
   tracks: Nullable<TrackResponse>[]
-): Promise<TrackResponse[]> {
-  const analysis = new Map<string, Nullable<TrackFeatures>>()
+): Promise<Nullable<TrackResponse>[]> {
+  const features = new Map<string, Nullable<TrackFeaturesResponse>>()
 
   await Promise.all(tracks.map(async track => {
-    if (!track) {
-      return null
-    }
+    if (!track) return null
+    if (!track.spotify_id) return null
 
-    const hash = track.hash
+    const { hash } = track
     const cached = await redis.getTrackFeatures(hash)
 
-    if (cached) {
-      analysis.set(hash, cached)
+    if (cached && cached.danceability) {
+      track.features = {
+        danceability: Number(cached.danceability),
+        energy: Number(cached.energy),
+        instrumentalness: Number(cached.instrumentalness),
+        speechiness: Number(cached.speechiness),
+        tempo: Number(cached.tempo),
+        valence: Number(cached.valence),
+        acousticness: Number(cached.acousticness),
+        liveness: Number(cached.liveness),
+        loudness: Number(cached.loudness)
+      }
     } else {
-      const features = await spotifyApi.getAudioFeaturesForTrack(track.spotify_id)
-      analysis.set(hash, features)
-      await redis.setTrackFeatures(hash, features)
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      features.set(track.spotify_id!, null)
     }
   }))
 
-  for (const track of tracks) {
-    if (track && track.spotify_id) {
-      const exists = await redis.client.exists(`track-analysis:${track.spotify}`)
-      if (exists) {
-        track.analysis = numerifyObject(await redis.client.hgetall(`track-analysis:${track.spotify}`))
-      } else {
-        const data = await database.getTrackFeatures(track.spotify)
-        if (data) {
-          redis.client.hmset(`track-analysis:${track.spotify}`, stringifyObject(data))
-          track.analysis = data
-        } else {
-          ids.push(track.spotify)
-        }
-      }
-    }
+  const keys = [...features.keys()]
+  const chunked = chunkArray(keys, 50)
 
-    if (track && track.analysis) delete track.analysis._id
-  }
-
-  const chunked = chunkArray(ids, 50)
-  console.log(ids)
-
-  const res = await Promise.all(
-    chunked.map(c => queueController.queueTask(QueueSource.SPOTIFY, () => spotifyApi.getAudioFeatures(c)))
+  const res: SpotifyAudioFeatures[][] = await Promise.all(
+    chunked.map(c => queueController.queueTask<SpotifyAudioFeatures[]>(QueueSource.Spotify, () => spotifyApi.getAudioFeatures(c)))
   )
 
-  const audiosFeatures = flatArray(res.map(r => r.audio_features))
-  const objs = new Map()
+  const results = flatArray(res)
 
-  for (const features of audiosFeatures) {
-    if (!features) continue
-    const obj = {
-      energy: features.energy,
-      danceability: features.danceability,
-      speechiness: features.speechiness,
-      instrumentalness: features.instrumentalness,
-      valence: features.valence,
-      tempo: features.tempo
+  for (let i = 0; i < results.length; i++) {
+    const feature = results[i]
+    const spotifyId = keys[i]
+
+    const obj: TrackFeaturesResponse = {
+      danceability: feature.danceability,
+      energy: feature.energy,
+      instrumentalness: feature.instrumentalness,
+      speechiness: feature.speechiness,
+      tempo: feature.tempo,
+      valence: feature.valence,
+      acousticness: feature.acousticness,
+      liveness: feature.liveness,
+      loudness: feature.loudness
     }
-    objs.set(features.id, obj)
-    await redis.client.hmset(`track-analysis:${features.id}`, stringifyObject(obj))
-    database.insertTrackFeatures(features.id, obj)
+
+    features.set(spotifyId, obj)
   }
 
-  return tracks.map(track => {
-    if (!track) return null
-    if (track.analysis) return track
+  return new Promise(resolve => {
+    resolve(tracks.map(track => {
+      if (!track || track.features || !track.spotify_id) return track
 
-    return {
-      ...track,
-      analysis: objs.get(track.spotify)
-    }
+      const feat = features.get(track.spotify_id)
+      if (feat) {
+        track.features = feat
+      }
+
+      return track
+    }))
+
+    const entries = [...features.entries()]
+      .map(([spotifyId, feature]) => {
+        if (!feature) return null
+
+        const hash = tracks.find(t => t?.spotify_id === spotifyId)?.hash
+        if (!hash) return null
+
+        const feat = {
+          ...feature,
+          track_hash: hash
+        }
+
+        redis.setTrackFeatures(hash, feat)
+          .then(doNothing)
+
+        return feat
+      })
+      .filter(f => !!f) as TrackFeatures[]
+
+    console.log(entries)
+
+    prisma.trackFeatures.createMany(
+      {
+        data: entries
+      }
+    )
+      .then(doNothing)
   })
 }
 

@@ -71,6 +71,18 @@ export interface TrackRequestItem {
   album?: string
 }
 
+export interface TrackFeaturesResponse {
+  danceability: number
+  energy: number
+  loudness: number
+  speechiness: number
+  acousticness: number
+  instrumentalness: number
+  liveness: number
+  valence: number
+  tempo: number
+}
+
 export interface TrackResponse {
   hash: string
   name: string
@@ -87,6 +99,8 @@ export interface TrackResponse {
   deezer_covers_colors: string[]
 
   duration: Nullable<number>
-  preview: Nullable<string>
+  preview: Nullable<string>,
+  features: Nullable<TrackFeaturesResponse>
+
   cached_at: string
 }

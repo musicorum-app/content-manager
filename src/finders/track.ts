@@ -12,8 +12,8 @@ const logger = new Signale({ scope: 'TrackFinder' })
 async function findTrack (
   ctx: Context,
   { name, artist, album }: TrackRequestItem,
-  needsDeezer: boolean,
-  showPreview: boolean
+  showPreview: boolean,
+  needsDeezer: boolean
 ): Promise<TrackResponse | null> {
   const {
     spotifyApi,
@@ -27,7 +27,7 @@ async function findTrack (
 
     const exists = await redis.getTrack(hash)
     if (exists && exists.hash) {
-      return formatDisplayTrack(await resolveTrack(ctx, exists, needsDeezer, showPreview))
+      return formatDisplayTrack(await resolveTrack(ctx, exists, showPreview, needsDeezer))
     } else {
       const found = await prisma.track.findUnique({
         where: {
@@ -37,7 +37,7 @@ async function findTrack (
 
       if (found) {
         await redis.setTrack(hash, found)
-        return formatDisplayTrack(await resolveTrack(ctx, found, needsDeezer, showPreview))
+        return formatDisplayTrack(await resolveTrack(ctx, found, showPreview, needsDeezer))
       } else {
         logger.time(`Track task for ${name}`)
         const albumAdc = album ? ` album:${album}` : ''
@@ -78,7 +78,7 @@ async function findTrack (
           data: item
         })
 
-        item = await resolveTrack(ctx, item, needsDeezer, showPreview)
+        item = await resolveTrack(ctx, item, showPreview, needsDeezer)
 
         await redis.setTrack(hash, item)
         return formatDisplayTrack(item)
@@ -96,8 +96,8 @@ async function findTrack (
 function resolveTrack (
   ctx: Context,
   track: Track,
-  needsDeezer: boolean,
-  showPreview: boolean
+  showPreview: boolean,
+  needsDeezer: boolean
 ): Promise<Track> {
   return resolveDeezer(ctx, needsDeezer, track)
     .then(track => resolvePreview(ctx, showPreview, track))
@@ -180,8 +180,9 @@ export function formatDisplayTrack (
     spotify_covers_colors: formatListBack(spotify_covers_colors),
     deezer_cover: valueOrNull(deezer_cover),
     deezer_covers_colors: formatListBack(deezer_covers_colors),
-    duration,
+    duration: Number(duration),
     preview: valueOrNull(preview),
+    features: null,
     cached_at
   }
 }
