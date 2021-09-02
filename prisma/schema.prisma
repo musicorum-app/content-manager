@@ -58,14 +58,12 @@ model Track {
 
   duration       Int?           @db.Integer
   preview        String?        @db.VarChar(255)
-  track_features TrackFeatures?
 
   cached_at String @db.VarChar(16)
 }
 
 model TrackFeatures {
-  track_hash String @id @db.VarChar(40)
-  track      Track  @relation(fields: [track_hash], references: [hash])
+  spotify_id String @id @db.VarChar(22)
 
   danceability     Float @db.DoublePrecision
   energy           Float @db.DoublePrecision

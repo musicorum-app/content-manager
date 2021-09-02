@@ -10,5 +10,11 @@
       }
     ],
     "@babel/preset-typescript"
-  ]
+  ],
+  "env": {
+    "development": {
+      "sourceMaps": "inline",
+      "retainLines": true
+    }
+  }
 }

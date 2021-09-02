@@ -32,7 +32,9 @@ const route = (ctx: Context) => {
 
       const promises = tracks.map(t => findTrack(ctx, t, showPreview, needsDeezer))
 
+      logger.time('Find tracks')
       let result = await Promise.all(promises)
+      logger.timeEnd('Find tracks')
 
       if (req.query.features === 'true') {
         result = await handleFeatures(ctx, result)
@@ -99,16 +101,20 @@ async function handleFeatures (
     if (!track) return null
     if (!track.spotify_id) return null
 
-    const { hash } = track
-    let cached = await redis.getTrackFeatures(hash)
+    const { spotify_id } = track
+    const r = Math.random() * 100
+    logger.time(`Redis search for ${spotify_id} (${r})`)
+    let cached = await redis.getTrackFeatures(spotify_id)
+    logger.timeEnd(`Redis search for ${spotify_id} (${r})`)
 
     if (!cached || !cached.danceability) {
+      logger.time(`Postgres search for ${spotify_id} (${r})`)
       cached = await prisma.trackFeatures.findUnique({
         where: {
-          track_hash: hash
+          spotify_id
         }
       })
-      console.log(cached, hash)
+      logger.timeEnd(`Postgres search for ${spotify_id} (${r})`)
     }
 
     if (cached && cached.danceability) {
@@ -123,11 +129,18 @@ async function handleFeatures (
         liveness: Number(cached.liveness),
         loudness: Number(cached.loudness)
       }
-    } else {
+    } else if (!features.has(spotify_id)) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       features.set(track.spotify_id!, null)
+      logger.debug('%s => (%s) feats: %s', track.hash, track.spotify_id, cached)
     }
   }))
+
+  if (features.size === 0) {
+    return tracks
+  } else {
+    logger.time(`Starting to fetch track features of length ${features.size}`)
+  }
 
   const keys = [...features.keys()]
   const chunked = chunkArray(keys, 50)
@@ -173,29 +186,51 @@ async function handleFeatures (
       .map(([spotifyId, feature]) => {
         if (!feature) return null
 
-        const hash = tracks.find(t => t?.spotify_id === spotifyId)?.hash
-        if (!hash) return null
+        const _tracks = tracks.filter(t => t?.spotify_id === spotifyId)
+        if (_tracks.length === 0) return null
 
-        const feat = {
-          ...feature,
-          track_hash: hash
+        const feats = []
+
+        for (const track of _tracks) {
+          if (!track || !track.spotify_id) continue
+
+          const feat = {
+            ...feature,
+            spotify_id: track.spotify_id
+          }
+
+          feats.push(feat)
+
+          redis.setTrackFeatures(track.spotify_id, feat)
+            .then(doNothing)
         }
 
-        redis.setTrackFeatures(hash, feat)
-          .then(doNothing)
-
-        return feat
+        return feats
       })
-      .filter(f => !!f) as TrackFeatures[]
-
-    console.log(entries)
+      .filter(f => !!f) as TrackFeatures[][]
 
     prisma.trackFeatures.createMany(
       {
-        data: entries
+        data: flatArray(entries)
       }
     )
       .then(doNothing)
+      .catch(async e => {
+        logger.error('Could not insert track features into database as many. Trying one by one', e)
+
+        for (const feat of flatArray(entries)) {
+          await prisma.trackFeatures.create({
+            data: feat
+          })
+            .then(doNothing)
+            .catch(e => {
+              logger.error('Could not insert track features into database', e)
+            })
+        }
+      })
+      .finally(() => {
+        logger.time(`Starting to fetch track features of length ${features.size}`)
+      })
   })
 }
 

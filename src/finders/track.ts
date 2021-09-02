@@ -4,7 +4,7 @@ import { NotFoundError } from '../redis/RedisClient'
 import { Signale } from 'signale'
 import { hashTrack } from '../utils/hashing'
 import { Track } from '@prisma/client'
-import { formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
+import { doNothing, formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
 import { QueueSource } from '../queue/sources'
 
 const logger = new Signale({ scope: 'TrackFinder' })
@@ -24,6 +24,7 @@ async function findTrack (
 
   try {
     const hash = hashTrack(name, artist, album || '')
+    logger.time(`Track finder for ${hash}`)
 
     const exists = await redis.getTrack(hash)
     if (exists && exists.hash) {
@@ -35,8 +36,11 @@ async function findTrack (
         }
       })
 
+      console.log(found)
+
       if (found) {
-        await redis.setTrack(hash, found)
+        redis.setTrack(hash, found)
+          .then(doNothing)
         return formatDisplayTrack(await resolveTrack(ctx, found, showPreview, needsDeezer))
       } else {
         logger.time(`Track task for ${name}`)
@@ -99,6 +103,7 @@ function resolveTrack (
   showPreview: boolean,
   needsDeezer: boolean
 ): Promise<Track> {
+  logger.timeEnd(`Track finder for ${track.hash}`)
   return resolveDeezer(ctx, needsDeezer, track)
     .then(track => resolvePreview(ctx, showPreview, track))
 }
