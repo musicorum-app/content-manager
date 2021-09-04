@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider      = "postgresql"
+  binaryTargets = ["native", "linux-musl"]
+  url           = env("DATABASE_URL")
 }
 
 generator client {
@@ -56,8 +57,8 @@ model Track {
   deezer_cover          String? @db.Text
   deezer_covers_colors  String? @db.Text
 
-  duration       Int?           @db.Integer
-  preview        String?        @db.VarChar(255)
+  duration Int?    @db.Integer
+  preview  String? @db.VarChar(255)
 
   cached_at String @db.VarChar(16)
 }
