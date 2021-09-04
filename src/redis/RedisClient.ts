@@ -58,27 +58,27 @@ export default class RedisClient {
   }
 
   public async getTrack (hash: string): Promise<Track | null> {
-    await this.checkIfIsNull(hash)
     const track = await this.client?.hgetall(hash)
-    return track ? this.convertNulls(track) as unknown as Track : null
+    if (Object.keys(track || {}).length === 0) await this.checkIfIsNull(hash)
+    return track && track !== {} ? this.convertNulls(track) as unknown as Track : null
   }
 
   public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {
-    await this.checkIfIsNull(hash + ':features')
     const features = await this.client?.hgetall(hash + ':features')
-    return features ? this.convertNulls(features) as unknown as TrackFeatures : null
+    if (Object.keys(features || {}).length === 0) await this.checkIfIsNull(hash)
+    return features && features !== {} ? this.convertNulls(features) as unknown as TrackFeatures : null
   }
 
   public async getAlbum (hash: string): Promise<Album | null> {
-    await this.checkIfIsNull(hash)
     const album = await this.client?.hgetall(hash)
-    return album ? this.convertNulls(album) as unknown as Album : null
+    if (Object.keys(album || {}).length === 0) await this.checkIfIsNull(hash)
+    return album && album !== {} ? this.convertNulls(album) as unknown as Album : null
   }
 
   public async getArtist (hash: string): Promise<Artist | null> {
-    await this.checkIfIsNull(hash)
     const artist = await this.client?.hgetall(hash)
-    return artist ? this.convertNulls(artist) as unknown as Artist : null
+    if (Object.keys(artist || {}).length === 0) await this.checkIfIsNull(hash)
+    return artist && artist !== {} ? this.convertNulls(artist) as unknown as Artist : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {
@@ -95,10 +95,7 @@ export default class RedisClient {
   }
 
   public async checkIfIsNull (hash: string): Promise<void> {
-    const type = await this.client?.type(hash)
-    if (!type || type === 'none') return
-
-    if (type === 'string' && (await this.client?.get(hash)) === notFoundValue) throw new NotFoundError()
+    if (await this.client?.exists(this.createNotFoundKey(hash))) throw new NotFoundError()
   }
 
   public chechIfIsNotFound (hash: string): Promise<boolean> {
@@ -110,8 +107,12 @@ export default class RedisClient {
   }
 
   public async setAsNotFound (hash: string) {
-    await this.client?.set(hash, notFoundValue)
+    await this.client?.set(this.createNotFoundKey(hash), '1')
     await this.client?.expire(hash, config.expiration.notFound)
+  }
+
+  public createNotFoundKey (key: string): string {
+    return `${key}::::nf`
   }
 
   public convertNulls (obj: Record<string, unknown>): Record<string, Nullable<unknown>> {

@@ -24,7 +24,6 @@ async function findTrack (
 
   try {
     const hash = hashTrack(name, artist, album || '')
-    logger.time(`Track finder for ${hash}`)
 
     const exists = await redis.getTrack(hash)
     if (exists && exists.hash) {
@@ -35,8 +34,6 @@ async function findTrack (
           hash
         }
       })
-
-      console.log(found)
 
       if (found) {
         redis.setTrack(hash, found)
@@ -103,7 +100,6 @@ function resolveTrack (
   showPreview: boolean,
   needsDeezer: boolean
 ): Promise<Track> {
-  logger.timeEnd(`Track finder for ${track.hash}`)
   return resolveDeezer(ctx, needsDeezer, track)
     .then(track => resolvePreview(ctx, showPreview, track))
 }
