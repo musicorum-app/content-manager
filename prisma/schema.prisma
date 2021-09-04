@@ -1,11 +1,11 @@
 datasource db {
   provider      = "postgresql"
-  binaryTargets = ["native", "linux-musl"]
   url           = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
 }
 
 model Artist {
