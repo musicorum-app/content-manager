@@ -25,82 +25,86 @@ enum ImageResourceSource {
 
 model ImageResource {
   hash     String              @id @db.VarChar(40)
-  explicit Boolean
-  active   Boolean
+  explicit Boolean?
+  active   Boolean @default(true)
   source   ImageResourceSource
 
   color_palette String[]
 
   images Image[]
 
-  artists Artist[]
-
-  created_at DateTime
+  created_at DateTime @default(now())
+  Artist     Artist?  @relation(fields: [artistHash], references: [hash])
+  artistHash String?  @db.VarChar(40)
+  Album      Album?   @relation(fields: [albumHash], references: [hash])
+  albumHash  String?  @db.VarChar(40)
+  Track      Track?   @relation(fields: [trackHash], references: [hash])
+  trackHash  String?  @db.VarChar(40)
 }
 
 model Artist {
   hash       String          @id @db.VarChar(40)
   name       String          @db.Text
   spotify_id String?         @db.VarChar(22)
-  deezer_id  Int
+  deezer_id  Int?
   resources  ImageResource[]
   genres     String[]        @db.Text
   tags       String[]        @db.Text
   similar    String[]        @db.Text
 
-  created_at DateTime
-  updated_at DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime?
 }
 
 model Album {
-  hash    String @id @db.VarChar(40)
-  name    String @db.Text
-  artists String @db.Text
+  hash    String   @id @db.VarChar(40)
+  name    String   @db.Text
+  artists String[] @db.Text
 
   spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
+  deezer_id  Int?
 
-  spotify_covers        String? @db.Text
-  spotify_covers_colors String? @db.Text
-  deezer_cover          String? @db.Text
-  deezer_covers_colors  String? @db.Text
+  resources ImageResource[]
 
   release_date String? @db.VarChar(16)
-  cached_at    String  @db.VarChar(16)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime?
 }
 
 model Track {
   hash String @id @db.VarChar(40)
 
-  name    String @db.Text
-  artists String @db.Text
-  album   String @db.Text
+  name    String   @db.Text
+  artists String[] @db.Text
+  album   String   @db.Text
 
   spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
-  genius_id  String? @db.VarChar(32)
+  deezer_id  Int?
+  genius_id  Int?
 
-  spotify_covers        String? @db.Text
-  spotify_covers_colors String? @db.Text
-  deezer_cover          String? @db.Text
-  deezer_covers_colors  String? @db.Text
+  resources ImageResource[]
 
-  duration Int?    @db.Integer
+  duration Int?    @db.Integer // ms
   preview  String? @db.VarChar(255)
 
-  cached_at String @db.VarChar(16)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime?
+
+  features                TrackFeatures? @relation(fields: [trackFeaturesSpotify_id], references: [spotify_id])
+  trackFeaturesSpotify_id String?        @db.VarChar(22)
 }
 
 model TrackFeatures {
   spotify_id String @id @db.VarChar(22)
 
-  danceability     Float @db.DoublePrecision
-  energy           Float @db.DoublePrecision
-  loudness         Float @db.DoublePrecision
-  speechiness      Float @db.DoublePrecision
-  acousticness     Float @db.DoublePrecision
-  instrumentalness Float @db.DoublePrecision
-  liveness         Float @db.DoublePrecision
-  valence          Float @db.DoublePrecision
-  tempo            Float @db.DoublePrecision
+  danceability     Float   @db.DoublePrecision
+  energy           Float   @db.DoublePrecision
+  loudness         Float   @db.DoublePrecision
+  speechiness      Float   @db.DoublePrecision
+  acousticness     Float   @db.DoublePrecision
+  instrumentalness Float   @db.DoublePrecision
+  liveness         Float   @db.DoublePrecision
+  valence          Float   @db.DoublePrecision
+  tempo            Float   @db.DoublePrecision
+  Track            Track[]
 }

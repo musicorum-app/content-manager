@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { Image, ImageResourceSource, PrismaClient } from '@prisma/client'
 import { Router } from 'express'
 import SpotifyAPI from '../apis/Spotify'
 import QueueController from '../queue/QueueController'
@@ -21,6 +21,17 @@ export interface Context {
   redis: RedisClient
   spotifyApi: SpotifyAPI,
   prisma: PrismaClient
+}
+
+// Resources response
+export interface ImageResource {
+  hash: string
+  explicit: Nullable<boolean>
+  active: boolean
+  source: ImageResourceSource
+  images: Image[]
+  color_palette: string[]
+  created_at: string
 }
 
 // Albums
@@ -53,16 +64,15 @@ export interface ArtistResponse {
   name: string
 
   spotify_id: Nullable<string>
-  deezer_id: Nullable<string>
+  deezer_id: Nullable<number>
 
-  spotify_images: string[]
-  spotify_images_colors: string[]
-  deezer_image: Nullable<string>
-  deezer_images_colors: string[]
+  resources: ImageResource[]
 
   genres: string[]
+  tags: string[]
+  similar: string[]
   popularity: Nullable<number>
-  cached_at: string
+  created_at: string
 }
 
 export interface TrackRequestItem {
