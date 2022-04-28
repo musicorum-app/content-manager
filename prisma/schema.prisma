@@ -1,27 +1,55 @@
 datasource db {
-  provider      = "postgresql"
-  url           = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl"]
 }
 
+model Image {
+  hash           String @id @db.VarChar(40)
+  image_resource String @db.VarChar(40)
+  width          Int    @db.Integer
+  height         Int    @db.Integer
+
+  ImageResource ImageResource? @relation(fields: [image_resource], references: [hash])
+}
+
+enum ImageResourceSource {
+  SPOTIFY
+  DEEZER
+  LASTFM
+}
+
+model ImageResource {
+  hash     String              @id @db.VarChar(40)
+  explicit Boolean
+  active   Boolean
+  source   ImageResourceSource
+
+  color_palette String[]
+
+  images Image[]
+
+  artists Artist[]
+
+  created_at DateTime
+}
+
 model Artist {
-  hash String @id @db.VarChar(40)
-  name String @db.Text
+  hash       String          @id @db.VarChar(40)
+  name       String          @db.Text
+  spotify_id String?         @db.VarChar(22)
+  deezer_id  Int
+  resources  ImageResource[]
+  genres     String[]        @db.Text
+  tags       String[]        @db.Text
+  similar    String[]        @db.Text
 
-  spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
-
-  spotify_images        String? @db.Text
-  spotify_images_colors String? @db.Text
-  deezer_image          String? @db.Text
-  deezer_images_colors  String? @db.Text
-
-  genres    String? @db.Text
-  cached_at String  @db.VarChar(16)
+  created_at DateTime
+  updated_at DateTime
 }
 
 model Album {

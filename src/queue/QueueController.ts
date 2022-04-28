@@ -61,7 +61,7 @@ export default class QueueController {
       })
   }
 
-  public async run (id: string, source: QueueSource, { runnable, resolve, reject }: Task) {
+  public async run<R> (id: string, source: QueueSource, { runnable, resolve, reject }: Task<R>) {
     this.logger.time('Task ' + id)
     runnable()
       .then(result => {
@@ -77,13 +77,14 @@ export default class QueueController {
       })
   }
 
-  public async queueTask<T> (source: QueueSource, runnable: TaskRunnable): Promise<T> {
+  public async queueTask<T> (source: QueueSource, runnable: TaskRunnable<unknown>): Promise<T> {
     return new Promise((resolve, reject) => {
-      this.queue.get(source)?.set(this.createRandomId(), {
+      const task = {
         runnable,
-        resolve,
+        resolve: (r) => resolve(r),
         reject
-      })
+      } as Task<T>
+      this.queue.get(source)?.set(this.createRandomId(), task)
 
       if (this.runningQueue.size === 0 && this.queue.size === 0) {
         this.tick()
