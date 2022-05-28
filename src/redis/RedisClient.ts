@@ -3,9 +3,8 @@ import { Signale } from 'signale'
 import config from '../../config.json'
 import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
-import { Nullable } from '../typings/common'
-
-const notFoundValue = '␀'
+import { ArtistResponse, MaybePrimitiveValues, Nullable } from '../typings/common'
+import { ArtistWithImageResources } from '../finders/artist'
 
 export default class RedisClient {
   private logger: Signale
@@ -37,8 +36,9 @@ export default class RedisClient {
     })
   }
 
-  public async setArtist (key: string, artist: Artist) {
-    await this.client?.hmset(key, stringifyObject(artist))
+  public async setArtist (key: string, artist: ArtistWithImageResources) {
+    // await this.client?.hmset(key, stringifyObject(artist))
+    await this.client?.set(key, JSON.stringify(artist))
     await this.client?.expire(key, config.expiration.artists)
   }
 
@@ -75,10 +75,10 @@ export default class RedisClient {
     return album && album !== {} ? this.convertNulls(album) as unknown as Album : null
   }
 
-  public async getArtist (hash: string): Promise<Artist | null> {
-    const artist = await this.client?.hgetall(hash)
-    if (Object.keys(artist || {}).length === 0) await this.checkIfIsNull(hash)
-    return artist && artist !== {} ? this.convertNulls(artist) as unknown as Artist : null
+  public async getArtist (hash: string): Promise<ArtistWithImageResources | null> {
+    const artist = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return artist && typeof artist === 'string' && artist !== '' ? JSON.parse(artist) as unknown as ArtistWithImageResources : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {

@@ -11,8 +11,9 @@ generator client {
 model Image {
   hash           String @id @db.VarChar(40)
   image_resource String @db.VarChar(40)
-  width          Int    @db.Integer
-  height         Int    @db.Integer
+  width          Int?   @db.Integer
+  height         Int?   @db.Integer
+  url            String @db.VarChar(256)
 
   ImageResource ImageResource? @relation(fields: [image_resource], references: [hash])
 }
@@ -26,10 +27,15 @@ enum ImageResourceSource {
 model ImageResource {
   hash     String              @id @db.VarChar(40)
   explicit Boolean?
-  active   Boolean @default(true)
+  active   Boolean             @default(true)
   source   ImageResourceSource
 
-  color_palette String[]
+  palette_vibrant       String? @db.Char(7)
+  palette_dark_vibrant  String? @db.Char(7)
+  palette_light_vibrant String? @db.Char(7)
+  palette_muted         String? @db.Char(7)
+  palette_dark_muted    String? @db.Char(7)
+  palette_light_muted   String? @db.Char(7)
 
   images Image[]
 
@@ -52,7 +58,7 @@ model Artist {
   tags       String[]        @db.Text
   similar    String[]        @db.Text
 
-  created_at DateTime @default(now())
+  created_at DateTime  @default(now())
   updated_at DateTime?
 }
 
@@ -66,9 +72,9 @@ model Album {
 
   resources ImageResource[]
 
-  release_date String? @db.VarChar(16)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime?
+  release_date String?   @db.VarChar(16)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime?
 }
 
 model Track {
@@ -87,8 +93,8 @@ model Track {
   duration Int?    @db.Integer // ms
   preview  String? @db.VarChar(255)
 
-  created_at    DateTime  @default(now())
-  updated_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime?
 
   features                TrackFeatures? @relation(fields: [trackFeaturesSpotify_id], references: [spotify_id])
   trackFeaturesSpotify_id String?        @db.VarChar(22)

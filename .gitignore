@@ -9,3 +9,5 @@ dist
 *.temp.*
 
 docker/resources/database
+
+yarn-error.log

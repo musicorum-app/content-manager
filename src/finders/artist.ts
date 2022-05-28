@@ -1,12 +1,18 @@
 import { hash, hashArtist } from '../utils/hashing'
 import { ArtistResponse, Context } from '../typings/common'
-import { Artist, ImageResourceSource } from '@prisma/client'
-import { doNothing, formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
+import { Artist, Image, ImageResource, ImageResourceSource, PrismaClient } from '@prisma/client'
+import { fromListOrArray, normalizeString, valueOrNull } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
+
+export type ArtistWithImageResources = Artist & {
+  resources: (ImageResource & {
+    images: Image[]
+  })[]
+}
 
 export async function findArtist (
   {
@@ -14,31 +20,23 @@ export async function findArtist (
     redis,
     prisma,
     queueController
-  }: Context, name: string): Promise<ArtistResponse | null> {
+  }: Context, name: string): Promise<ArtistWithImageResources | null> {
   try {
     const hashedArtist = hashArtist(name)
 
     const exists = await redis.getArtist(hashedArtist)
     if (exists && exists.hash) {
-      return formatDisplayArtist(exists)
+      return exists
     } else {
-      const found = await prisma.artist.findUnique({
-        where: {
-          hash: hashedArtist
-        }
-      })
-
+      const found = await getArtistFromPrisma(prisma, hashedArtist)
       if (found) {
         redis.setArtist(hashedArtist, found)
-        return formatDisplayArtist(found)
+        return found
       } else {
-        logger.time(`Artist task for ${name}`)
         const res = await queueController.queueTask<SpotifySearchResponse>(
           QueueSource.Spotify,
           () => spotifyApi.searchArtist(name)
         )
-
-        logger.timeEnd(`Artist task for ${name}`)
 
         if (res.artists?.items.length === 0) {
           redis.setAsNotFound(hashedArtist)
@@ -63,22 +61,20 @@ export async function findArtist (
           updated_at: new Date()
         }
 
-        redis.setArtist(hashedArtist, item)
-        redis.setPopularity(selected.id, selected.popularity)
-
         const hasImage = selected.images && selected.images.length > 0 && selected.images[0].url
 
-        prisma.artist.create({
+        await prisma.artist.create({
           data: hasImage ? {
             ...item,
             resources: {
               create: {
-                hash: hash(selected.images.map(i => i.url).join('')),
+                hash: hash(selected.images.map(i => i.url).join('') + hashedArtist),
                 source: ImageResourceSource.SPOTIFY,
                 images: {
                   createMany: {
                     data: selected.images.map(image => ({
-                      hash: hash(image.url),
+                      hash: hash(image.url + hashedArtist),
+                      url: image.url,
                       width: image.width,
                       height: image.height
                     }))
@@ -88,9 +84,14 @@ export async function findArtist (
             }
           } : item
         })
-          .then(() => doNothing())
-          .catch(err => logger.error(err))
-        return formatDisplayArtist(item)
+
+        const entry = await getArtistFromPrisma(prisma, hashedArtist)
+        if (!entry) throw new Error('This artist could not be saved.')
+
+        redis.setArtist(hashedArtist, entry)
+        redis.setPopularity(selected.id, selected.popularity)
+
+        return entry
       }
     }
   } catch (e) {
@@ -102,26 +103,63 @@ export async function findArtist (
   }
 }
 
-function formatDisplayArtist ({
+function getArtistFromPrisma (prisma: PrismaClient, hash: string) {
+  return prisma.artist.findUnique({
+    where: {
+      hash
+    },
+    include: {
+      resources: {
+        include: {
+          images: true
+        }
+      }
+    }
+  })
+}
+
+export function formatDisplayArtist ({
   hash,
   name,
   spotify_id,
   deezer_id,
   genres,
   similar,
+  resources,
   tags,
   created_at
-}: Artist): ArtistResponse {
+}: ArtistWithImageResources): ArtistResponse {
   return {
     hash,
     name,
     spotify_id: valueOrNull(spotify_id),
-    deezer_id: valueOrNull(deezer_id),
-    resources: [],
-    genres,
-    similar,
-    tags,
+    deezer_id: valueOrNull(deezer_id ? Number(deezer_id) : null),
+    resources: resources.map(resource => ({
+      hash: resource.hash,
+      explicit: resource.explicit,
+      source: resource.source,
+      color_palette: {
+        vibrant: resource.palette_vibrant,
+        dark_vibrant: resource.palette_dark_vibrant,
+        light_vibrant: resource.palette_light_vibrant,
+        muted: resource.palette_muted,
+        dark_muted: resource.palette_dark_muted,
+        light_muted: resource.palette_light_muted
+      },
+      active: resource.active,
+      // convert to date because of redis data is a JSON
+      created_at: new Date(resource.created_at).getTime().toString(),
+      images: resource.images.map(image => ({
+        hash: image.hash,
+        url: image.url,
+        width: image.width,
+        height: image.height
+      }))
+    })),
+    genres: fromListOrArray(genres),
+    similar: fromListOrArray(similar),
+    tags: fromListOrArray(tags),
     popularity: null,
-    created_at: created_at.getTime().toString()
+    created_at: new Date(created_at).getTime().toString()
   }
 }

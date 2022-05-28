@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { Signale } from 'signale'
 import config from '../../config.json'
+import { Task, TaskRunnable } from '../typings/queue'
 import { QueueSource } from './sources'
 
 export default class QueueController {
@@ -77,7 +78,7 @@ export default class QueueController {
       })
   }
 
-  public async queueTask<T> (source: QueueSource, runnable: TaskRunnable<unknown>): Promise<T> {
+  public async queueTask<T = any> (source: QueueSource, runnable: TaskRunnable<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       const task = {
         runnable,

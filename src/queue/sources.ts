@@ -1,4 +1,5 @@
 export enum QueueSource {
   Spotify = 'spotify',
-  Deezer = 'deezer'
+  Deezer = 'deezer',
+  PaletteResolver = 'paletteResolver'
 }

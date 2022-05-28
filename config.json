@@ -1,7 +1,8 @@
 {
   "sources": {
-    "spotify": 7,
-    "deezer": 9
+    "spotify": 9,
+    "deezer": 9,
+    "paletteResolver": 25
   },
   "expiration": {
     "notFound": 604800,

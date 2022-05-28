@@ -1,4 +1,4 @@
-import { Image, ImageResourceSource, PrismaClient } from '@prisma/client'
+import { ImageResourceSource, PrismaClient } from '@prisma/client'
 import { Router } from 'express'
 import SpotifyAPI from '../apis/Spotify'
 import QueueController from '../queue/QueueController'
@@ -15,6 +15,9 @@ export interface Config {
   }
 }
 
+export type MaybePrimitiveValues<O extends Record<string, unknown>>
+  = O | Record<keyof O, string>
+
 export interface Context {
   router: Router
   queueController: QueueController
@@ -23,14 +26,28 @@ export interface Context {
   prisma: PrismaClient
 }
 
+export type ImageResponse = {
+  hash: string
+  width: Nullable<number>
+  height: Nullable<number>
+  url: string
+}
+
 // Resources response
 export interface ImageResource {
   hash: string
   explicit: Nullable<boolean>
   active: boolean
   source: ImageResourceSource
-  images: Image[]
-  color_palette: string[]
+  images: ImageResponse[]
+  color_palette: {
+    vibrant: Nullable<string>
+    dark_vibrant: Nullable<string>
+    light_vibrant: Nullable<string>
+    muted: Nullable<string>
+    dark_muted: Nullable<string>
+    light_muted: Nullable<string>
+  }
   created_at: string
 }
 

@@ -2,8 +2,9 @@ import { chunkArray, flatArray } from '../utils/utils'
 import messages from '../messages'
 import { ArtistResponse, Context, Nullable } from '../typings/common'
 import { Signale } from 'signale'
-import { findArtist } from '../finders/artist'
+import { findArtist, formatDisplayArtist } from '../finders/artist'
 import { QueueSource } from '../queue/sources'
+import { retrieveColorPalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -17,8 +18,33 @@ const route = (ctx: Context) => {
           .json(messages.MISSING_PARAMS)
       }
       logger.time('Find artists with length of ' + artists.length)
+      const retrievePalette = req.query.palette === 'true'
 
-      const promises = artists.map(a => findArtist(ctx, a))
+      const promises = artists.map(
+        (a, i) => findArtist(ctx, a)
+          .then(async (artist) => {
+            if (!artist) return null
+            if (retrievePalette) {
+              logger.time('palette for ' + i)
+              for (const _resource in artist.resources) {
+                const resource = artist.resources[_resource]
+                if (!resource.palette_vibrant && resource.images.length > 0) {
+                  const palette = await ctx.queueController.queueTask(
+                    QueueSource.PaletteResolver,
+                    () => retrieveColorPalette(ctx.prisma, resource)
+                  )
+                  artist.resources[_resource] = {
+                    ...resource,
+                    ...palette
+                  }
+                }
+              }
+              logger.timeEnd('palette for ' + i)
+              await ctx.redis.setArtist(artist.hash, artist)
+            }
+            return formatDisplayArtist(artist)
+          })
+      )
 
       let result = await Promise.all(promises)
 
@@ -58,8 +84,6 @@ const getPopularityForArtists = async ({
       }
     }
   }))
-
-  logger.debug(pops)
 
   logger.timeEnd('Get popularity for artists')
 

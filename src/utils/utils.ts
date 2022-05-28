@@ -1,5 +1,7 @@
-export function chunkArray (arr: any[], size: number): any[][] {
-  return arr.reduce((resultArray, item, index) => {
+import { ImageResource, PrismaClient } from '@prisma/client'
+
+export function chunkArray<T> (arr: T[], size: number): T[][] {
+  return arr.reduce((resultArray: T[][], item, index) => {
     const chunkIndex = Math.floor(index / size)
 
     if (!resultArray[chunkIndex]) resultArray[chunkIndex] = []
@@ -20,6 +22,11 @@ export function stringifyObject<T extends Record<string, any>> (obj: T): Record<
   const clone: Record<string, string> = {}
 
   for (const key of Object.keys(obj)) {
+    if (obj[key] === null) {
+      clone[key] = 'null'
+    } else {
+      clone[key] = typeof obj[key] === 'object' ? JSON.stringify(obj[key]) : obj[key].toString()
+    }
     clone[key] = obj[key] !== null ? obj[key].toString() : 'null'
   }
 
@@ -52,6 +59,11 @@ export function formatListBack (str?: string | null): string[] {
 
 export function valueOrNull<T> (value: T | 'null'): T | null {
   return value === 'null' || value === undefined || value === null ? null : value
+}
+
+export function fromListOrArray (value: string | string[]) {
+  if (!value) return []
+  return Array.isArray(value) ? value : value.split(',')
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
