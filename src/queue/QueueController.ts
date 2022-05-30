@@ -1,4 +1,7 @@
+import { blue, blueBright, magentaBright, red, redBright } from 'colorette'
 import crypto from 'crypto'
+import { nanoid } from 'nanoid'
+import { performance } from 'perf_hooks'
 import { Signale } from 'signale'
 import config from '../../config.json'
 import { Task, TaskRunnable } from '../typings/queue'
@@ -39,7 +42,7 @@ export default class QueueController {
         const ableToDo = tps - running.size
 
         if (queue.size > 0) {
-          this.logger.debug('Actual queue size is %d/%d for %s', running.size, queue.size, source)
+          this.logger.debug(`Actual queue size is ${redBright('%d/%d')} for ${redBright('%s')}`, running.size, queue.size, source)
         }
 
         if (queue.size <= ableToDo) {
@@ -63,17 +66,16 @@ export default class QueueController {
   }
 
   public async run<R> (id: string, source: QueueSource, { runnable, resolve, reject }: Task<R>) {
-    this.logger.time('Task ' + id)
+    const start = performance.now()
     runnable()
       .then(result => {
-        this.logger.timeEnd('Task ' + id)
         resolve(result)
       })
       .catch(e => {
-        this.logger.timeEnd('Task ' + id)
         reject(e)
       })
       .finally(() => {
+        this.logger.await(`Task ${blue('%s')} [${magentaBright('%s')}] took ${magentaBright('%dms')}`, id, source, (performance.now() - start).toFixed(2))
         this.runningQueue.get(source)?.delete(id)
       })
   }
@@ -94,6 +96,6 @@ export default class QueueController {
   }
 
   private createRandomId (): string {
-    return crypto.randomBytes(32).toString('hex').toUpperCase()
+    return nanoid(32)
   }
 }

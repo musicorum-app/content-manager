@@ -1,10 +1,17 @@
-import { ImageResourceSource, PrismaClient } from '@prisma/client'
+import { ImageResourceSource, ImageSize, PrismaClient } from '@prisma/client'
 import { Router } from 'express'
+import LastFM from 'lastfm-typed'
 import SpotifyAPI from '../apis/Spotify'
 import QueueController from '../queue/QueueController'
 import RedisClient from '../redis/RedisClient'
 
 export type Nullable<T> = T | null
+
+export enum DataSource {
+  Spotify = 'spotify',
+  Deezer = 'deezer',
+  LastFM = 'lastfm'
+}
 
 export interface Config {
   sources: {
@@ -22,14 +29,14 @@ export interface Context {
   router: Router
   queueController: QueueController
   redis: RedisClient
-  spotifyApi: SpotifyAPI,
+  spotifyApi: SpotifyAPI
   prisma: PrismaClient
+  lastfm: LastFM
 }
 
 export type ImageResponse = {
   hash: string
-  width: Nullable<number>
-  height: Nullable<number>
+  size: ImageSize
   url: string
 }
 

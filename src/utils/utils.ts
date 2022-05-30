@@ -1,4 +1,5 @@
-import { ImageResource, PrismaClient } from '@prisma/client'
+import { ImageSize } from '@prisma/client'
+import { DataSource } from '../typings/common'
 
 export function chunkArray<T> (arr: T[], size: number): T[][] {
   return arr.reduce((resultArray: T[][], item, index) => {
@@ -68,3 +69,46 @@ export function fromListOrArray (value: string | string[]) {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export function doNothing () { }
+
+export function parseQueryList (qs: unknown) {
+  if (Array.isArray(qs)) {
+    return qs as string[]
+  } else if (typeof qs === 'string') {
+    return qs.split(',')
+  } else {
+    return []
+  }
+}
+
+export function parseSourcesList (qs: unknown) {
+  const list = parseQueryList(qs)
+
+  const availableSources = Object.keys(DataSource).map(s => s.toLowerCase())
+  return list
+    .filter(s => availableSources.includes(s.toLowerCase()))
+    .map(s => s.toLowerCase()) as DataSource[]
+}
+/**
+ *  | EXTRA_SMALL |  SMALL  |  MEDIUM  |   LARGE  | EXTRA_LARGE |
+ *  0------------100-------200--------600--------950------------
+ */
+export function imageSizeToSizeEnum (width: number, height: number): ImageSize {
+  const significantSize = width > height ? height : width
+
+  if (significantSize <= 100) return ImageSize.EXTRA_SMALL
+  else if (significantSize <= 200) return ImageSize.SMALL
+  else if (significantSize <= 600) return ImageSize.MEDIUM
+  else if (significantSize <= 950) return ImageSize.LARGE
+  else return ImageSize.EXTRA_LARGE
+}
+
+export const isLastFMError = (
+  error: unknown
+): error is { code: number, message: string } => {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    'message' in error
+  )
+}

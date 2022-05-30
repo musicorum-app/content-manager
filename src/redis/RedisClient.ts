@@ -3,7 +3,7 @@ import { Signale } from 'signale'
 import config from '../../config.json'
 import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
-import { ArtistResponse, MaybePrimitiveValues, Nullable } from '../typings/common'
+import { ArtistResponse, DataSource, MaybePrimitiveValues, Nullable } from '../typings/common'
 import { ArtistWithImageResources } from '../finders/artist'
 
 export default class RedisClient {
@@ -94,25 +94,25 @@ export default class RedisClient {
     return value ? parseInt(value.toString()) : null
   }
 
-  public async checkIfIsNull (hash: string): Promise<void> {
-    if (await this.client?.exists(this.createNotFoundKey(hash))) throw new NotFoundError()
+  public async checkIfIsNull (hash: string, source: DataSource): Promise<void> {
+    if (await this.client?.exists(this.createNotFoundKey(hash, source))) throw new NotFoundError()
   }
 
-  public chechIfIsNotFound (hash: string): Promise<boolean> {
+  public chechIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
     return new Promise(resolve => {
-      this.checkIfIsNull(hash)
+      this.checkIfIsNull(hash, source)
         .then(() => resolve(false))
         .catch(() => resolve(true))
     })
   }
 
-  public async setAsNotFound (hash: string) {
-    await this.client?.set(this.createNotFoundKey(hash), '1')
+  public async setAsNotFound (hash: string, source: DataSource) {
+    await this.client?.set(this.createNotFoundKey(hash, source), '1')
     await this.client?.expire(hash, config.expiration.notFound)
   }
 
-  public createNotFoundKey (key: string): string {
-    return `${key}::::nf`
+  public createNotFoundKey (key: string, source: DataSource): string {
+    return `${source}:${key}::::nf`
   }
 
   public convertNulls (obj: Record<string, unknown>): Record<string, Nullable<unknown>> {

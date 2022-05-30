@@ -15,7 +15,7 @@ class SpotifyAPI {
     })
   }
 
-  async searchArtist (query: string, limit = 15): Promise<SpotifySearchResponse> {
+  async searchArtist (query: string, limit = 25): Promise<SpotifySearchResponse> {
     return this.client.search({
       type: 'artist',
       query: `"${query}"`,

@@ -1,4 +1,15 @@
-POST http://localhost:8080/find/artists?popularity=true&palette=true
+POST http://localhost:8080/find/artists?sources=spotify,lastfm&palette=true
+Content-Type: application/json
+
+{
+    "artists": [
+        "dhjgfadsfasdfasdfdsfdsf", "sdf", "asad","Amazing", "Amazing", "Amazing", "Amazing", "Amazing", "Amazing", "Girl's Day", "Joey Bada$$", "LADIES' CODE", "Solange", "King's Xa", "Tshe Notorious B.I.G.", "Bob Dylana", "Van Halen", "Lynyrd Skynyrd", "Kid Rock", "Portishead", "Santana", "Prince", "Symphony X", "Aretha Franklin", "AC/DC", "Herbie Hancock", "ZZ Top", "Burning Spear", "Stevie Ray Vaughan", "Pornosonic", "Easy Star All-Stars", "Michael Jackson", "Nate Dogg", "Slamin' Gladys", "Fun Lovin' Criminals", "Otis Redding", "B.B. King", "Nouvelle Vague", "Rilo Kiley", "Tok Tok Tok", "Airbourne"
+    ]
+}
+
+###
+
+POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm
 Content-Type: application/json
 
 {
@@ -9,7 +20,7 @@ Content-Type: application/json
 
 ###
 
-POST http://localhost:8080/find/artists?popularity=true&palette=true
+POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm
 Content-Type: application/json
 
 {
@@ -21,7 +32,7 @@ Content-Type: application/json
 
 ###
 
-POST http://localhost:8080/find/artists?palette=true
+POST http://localhost:8080/find/artists?sources=lastfm,spotify&palette=true
 Content-Type: application/json
 
 {"artists": ["Dream Theater", "Dire Straits", "Snoop Dogg", "Miles Davis", "Metallica", "Pink Floyd", "Rage Against the Machine", "Buckcherry", "Dr. Dre", "Blue Sky Black Death", "Jimi Hendrix", "Aerosmith", "Led Zeppelin", "Guns N' Roses", "Bob Marley & The Wailers", "Joe Satriani", "Alpha Blondy", "Nina Simone", "Nine Inch Nails", "Red Hot Chili Peppers", "Def Leppard", "Mr. Big", "Ennio Morricone", "Mark Knopfler", "Counting Crows", "Fleetwood Mac", "Radiohead", "America", "The Rolling Stones", "Mayer Hawthorne", "Stevie Wonder", "David Bowie", "The Kleptones", "Marcus Miller", "Warren G", "Spock's Beard", "Eagles", "James Taylor", "Steely Dan", "Leonard Cohen", "Queen", "Firebird", "R.E.M.", "Tom Waits", "Free", "DJ Shadow", "Skid Row", "The Beatles", "Eric Clapton", "Liquid Tension Experiment", "Foo Fighters", "Rammstein", "Ben Folds Five", "Steve Vai", "Matchbox Twenty", "Beastie Boys", "The Jimi Hendrix Experience", "Deep Purple", "Richard Cheese", "Goo Goo Dolls", "3 Doors Down", "Dan Reed Network", "2Pac", "Norah Jones", "Weather Report", "Amy Winehouse", "James Brown", "Jamiroquai", "The Doors", "Rodriguez", "Johnny Cash", "Bruce Springsteen", "Robyn", "Iron Maiden", "Moby", "John Martyn", "Level 42", "King's X", "The Notorious B.I.G.", "Bob Dylan", "Van Halen", "Lynyrd Skynyrd", "Kid Rock", "Portishead", "Santana", "Prince", "Symphony X", "Aretha Franklin", "AC/DC", "Herbie Hancock", "ZZ Top", "Burning Spear", "Stevie Ray Vaughan", "Pornosonic", "Easy Star All-Stars", "Michael Jackson", "Nate Dogg", "Slamin' Gladys", "Fun Lovin' Criminals", "Otis Redding", "B.B. King", "Nouvelle Vague", "Rilo Kiley", "Tok Tok Tok", "Airbourne", "Creedence Clearwater Revival", "Echo & the Bunnymen", "Van Morrison", "Dr. John", "Bob Seger", "Cypress Hill", "Pearl Jam", "Busta Rhymes", "Labi Siffre", "Lady Gaga", "Daft Punk", "Faith No More", "Beck", "Chris Rea", "Chilly Gonzales", "Knife Party", "Rick James", "System of a Down", "Adele", "Nursery Rhymes ABC", "Silverchair", "Talib Kweli", "Badly Drawn Boy", "Submotion Orchestra", "Dido", "Neil Young", "Peter Tosh", "Eminem", "Eva Cassidy", "B.B. King & Eric Clapton", "C2C", "Ben Harper", "Jack Johnson", "The Police", "Eels", "Frankie Goes to Hollywood", "The Who", "Billie Holiday", "Cake", "Wax Audio", "Acoustic Alchemy", "Elton John", "Fugees", "Nat King Cole", "Supreme Beings of Leisure", "Nick Drake", "Bran Van 3000", "Coldplay", "Marvin Gaye", "Muddy Waters", "Supertramp", "Stanley Clarke", "Dave Matthews Band", "Jeff Buckley", "U2", "A Perfect Circle", "Lenny Kravitz", "Ella Fitzgerald", "Chet Baker", "Crash Test Dummies", "Jane's Addiction", "David Lee Roth", "Desert Sessions", "Massive Attack", "The Classic Chill Out Album", "Weezer", "Neal Morse", "The Smashing Pumpkins", "Dave Weckl", "Lou Reed", "Spin Doctors", "Air", "Bad Religion", "John Coltrane", "Jonathan Coulton", "King Tubby", "Simon & Garfunkel", "Frank Sinatra", "Sublime", "Barenaked Ladies", "The Cure", "The Hollies", "Ice Cube", "PAW Patrol", "Black Sabbath", "Muse", "Nirvana", "The James Taylor Quartet", "The Verve", "Audioslave", "Guano Apes", "John Legend", "John Mayer", "Tito & Tarantula", "Cream"]}

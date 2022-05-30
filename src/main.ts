@@ -10,6 +10,7 @@ import messages from './messages'
 import { Context } from './typings/common'
 import { PrismaClient } from '@prisma/client'
 import routes from './routes'
+import LastFM from 'lastfm-typed'
 
 export default class Main {
   private logger: Signale
@@ -18,15 +19,24 @@ export default class Main {
   public redis: RedisClient
   public spotifyApi: SpotifyAPI
   public prisma: PrismaClient
+  public lastfm: LastFM
 
   constructor () {
     this.logger = new Signale({ scope: 'Main' })
+
+    if (!process.env.LASTFM_KEY) {
+      throw new Error('Lastfm client key is required')
+    }
 
     this.app = express()
     this.queueController = new QueueController()
     this.redis = new RedisClient()
     this.spotifyApi = new SpotifyAPI()
     this.prisma = new PrismaClient()
+    this.lastfm = new LastFM(process.env.LASTFM_KEY, {
+      secureConnection: true,
+      userAgent: 'MusicorumContentManager/' + version
+    })
   }
 
   async init () {
@@ -68,7 +78,8 @@ export default class Main {
       queueController: this.queueController,
       redis: this.redis,
       spotifyApi: this.spotifyApi,
-      prisma: this.prisma
+      prisma: this.prisma,
+      lastfm: this.lastfm
     }
 
     for (const route of routes) {

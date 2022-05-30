@@ -8,12 +8,20 @@ generator client {
   binaryTargets = ["native", "linux-musl"]
 }
 
+enum ImageSize {
+  EXTRA_SMALL
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+  UNKNOWN
+}
+
 model Image {
-  hash           String @id @db.VarChar(40)
-  image_resource String @db.VarChar(40)
-  width          Int?   @db.Integer
-  height         Int?   @db.Integer
-  url            String @db.VarChar(256)
+  hash           String    @id @db.VarChar(40)
+  image_resource String    @db.VarChar(40)
+  size           ImageSize @default(UNKNOWN)
+  url            String    @db.VarChar(256)
 
   ImageResource ImageResource? @relation(fields: [image_resource], references: [hash])
 }

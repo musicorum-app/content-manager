@@ -1,6 +1,6 @@
-import { chunkArray, flatArray } from '../utils/utils'
+import { chunkArray, flatArray, parseQueryList, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
-import { ArtistResponse, Context, Nullable } from '../typings/common'
+import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
 import { Signale } from 'signale'
 import { findArtist, formatDisplayArtist } from '../finders/artist'
 import { QueueSource } from '../queue/sources'
@@ -20,12 +20,16 @@ const route = (ctx: Context) => {
       logger.time('Find artists with length of ' + artists.length)
       const retrievePalette = req.query.palette === 'true'
 
+      const sources = parseSourcesList(req.query.sources)
+      if (sources.length === 0) {
+        sources[0] = DataSource.Spotify
+      }
+
       const promises = artists.map(
-        (a, i) => findArtist(ctx, a)
+        (a) => findArtist(ctx, a, sources)
           .then(async (artist) => {
             if (!artist) return null
             if (retrievePalette) {
-              logger.time('palette for ' + i)
               for (const _resource in artist.resources) {
                 const resource = artist.resources[_resource]
                 if (!resource.palette_vibrant && resource.images.length > 0) {
@@ -39,7 +43,6 @@ const route = (ctx: Context) => {
                   }
                 }
               }
-              logger.timeEnd('palette for ' + i)
               await ctx.redis.setArtist(artist.hash, artist)
             }
             return formatDisplayArtist(artist)
