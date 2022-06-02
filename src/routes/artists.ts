@@ -29,15 +29,16 @@ const route = (ctx: Context) => {
         (a) => findArtist(ctx, a, sources)
           .then(async (artist) => {
             if (!artist) return null
+            console.log(artist)
             if (retrievePalette) {
-              for (const _resource in artist.resources) {
-                const resource = artist.resources[_resource]
+              for (const artistImageResource of artist.artistImageResource) {
+                const resource = artistImageResource.image_resource
                 if (!resource.palette_vibrant && resource.images.length > 0) {
                   const palette = await ctx.queueController.queueTask(
                     QueueSource.PaletteResolver,
                     () => retrieveColorPalette(ctx.prisma, resource)
                   )
-                  artist.resources[_resource] = {
+                  artistImageResource.image_resource = {
                     ...resource,
                     ...palette
                   }

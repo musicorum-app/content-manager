@@ -1,6 +1,6 @@
 import { hash, hashArtist } from '../utils/hashing'
 import { ArtistResponse, Context, DataSource } from '../typings/common'
-import { Artist, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
+import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
 import { fromListOrArray, imageSizeToSizeEnum, isLastFMError, normalizeString, valueOrNull } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
@@ -9,8 +9,10 @@ import { QueueSource } from '../queue/sources'
 const logger = new Signale({ scope: 'ArtistFinder' })
 
 export type ArtistWithImageResources = Artist & {
-  resources: (ImageResource & {
-    images: Image[]
+  artistImageResource: (ArtistImageResourceLink & {
+    image_resource: ImageResource & {
+      images: Image[]
+    }
   })[]
 }
 
@@ -80,11 +82,12 @@ export async function findArtist (
         if (resources.length > 0) {
           toCreate = {
             ...item,
-            resources: {
-              createMany: {
-                data: resources,
-                skipDuplicates: true
-              }
+            artistImageResource: {
+              create: resources.map(r => ({
+                image_resource: {
+                  create: r
+                }
+              }))
             }
           }
         }
@@ -127,9 +130,13 @@ function getArtistFromPrisma (prisma: PrismaClient, hash: string) {
       hash
     },
     include: {
-      resources: {
+      artistImageResource: {
         include: {
-          images: true
+          image_resource: {
+            include: {
+              images: true
+            }
+          }
         }
       }
     }
@@ -169,7 +176,7 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
   item.genres.push(...selected.genres)
 
   if (selected.images && selected.images.length > 0 && selected.images[0].url) {
-    const resourceHash = hash(selected.images.map(i => i.url).join('') + item.hash)
+    const resourceHash = hash(selected.images.map(i => i.url).join(''))
     resources.push({
       hash: resourceHash,
       source: ImageResourceSource.SPOTIFY
@@ -215,7 +222,7 @@ export function formatDisplayArtist ({
   deezer_id,
   genres,
   similar,
-  resources,
+  artistImageResource,
   tags,
   created_at
 }: ArtistWithImageResources): ArtistResponse {
@@ -224,7 +231,7 @@ export function formatDisplayArtist ({
     name,
     spotify_id: valueOrNull(spotify_id),
     deezer_id: valueOrNull(deezer_id ? Number(deezer_id) : null),
-    resources: resources.map(resource => ({
+    resources: artistImageResource.map(({ image_resource: resource }) => ({
       hash: resource.hash,
       explicit: resource.explicit,
       source: resource.source,

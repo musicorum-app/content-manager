@@ -18,8 +18,8 @@ enum ImageSize {
 }
 
 model Image {
-  hash           String    @id @db.VarChar(40)
-  image_resource String    @db.VarChar(40)
+  hash           String    @id @db.Char(40)
+  image_resource String    @db.Char(40)
   size           ImageSize @default(UNKNOWN)
   url            String    @db.VarChar(256)
 
@@ -33,7 +33,7 @@ enum ImageResourceSource {
 }
 
 model ImageResource {
-  hash     String              @id @db.VarChar(40)
+  hash     String              @id @db.Char(40)
   explicit Boolean?
   active   Boolean             @default(true)
   source   ImageResourceSource
@@ -47,56 +47,72 @@ model ImageResource {
 
   images Image[]
 
-  created_at DateTime @default(now())
-  Artist     Artist?  @relation(fields: [artistHash], references: [hash])
-  artistHash String?  @db.VarChar(40)
-  Album      Album?   @relation(fields: [albumHash], references: [hash])
-  albumHash  String?  @db.VarChar(40)
-  Track      Track?   @relation(fields: [trackHash], references: [hash])
-  trackHash  String?  @db.VarChar(40)
+  created_at          DateTime                  @default(now())
+  artistImageResource ArtistImageResourceLink[]
+  albumImageResource  AlbumImageResourceLink[]
+  trackImageResource  TrackImageResourceLink[]
 }
 
 model Artist {
-  hash       String          @id @db.VarChar(40)
-  name       String          @db.Text
-  spotify_id String?         @db.VarChar(22)
+  hash       String   @id @db.Char(40)
+  name       String   @db.Text
+  spotify_id String?  @db.Char(22)
   deezer_id  Int?
-  resources  ImageResource[]
-  genres     String[]        @db.Text
-  tags       String[]        @db.Text
-  similar    String[]        @db.Text
+  genres     String[] @db.Text
+  tags       String[] @db.Text
+  similar    String[] @db.Text
 
-  created_at DateTime  @default(now())
-  updated_at DateTime?
+  created_at          DateTime                  @default(now())
+  updated_at          DateTime?
+  artistImageResource ArtistImageResourceLink[]
+}
+
+model ArtistImageResourceLink {
+  artist              Artist        @relation(fields: [artist_hash], references: [hash])
+  artist_hash         String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([artist_hash, image_resource_hash])
 }
 
 model Album {
-  hash    String   @id @db.VarChar(40)
+  hash    String   @id @db.Char(40)
   name    String   @db.Text
   artists String[] @db.Text
 
-  spotify_id String? @db.VarChar(22)
+  spotify_id String? @db.Char(22)
   deezer_id  Int?
 
-  resources ImageResource[]
 
-  release_date String?   @db.VarChar(16)
-  created_at   DateTime  @default(now())
-  updated_at   DateTime?
+
+  release_date       String?                  @db.VarChar(16)
+  created_at         DateTime                 @default(now())
+  updated_at         DateTime?
+  albumImageResource AlbumImageResourceLink[]
+}
+
+model AlbumImageResourceLink {
+  album               Album         @relation(fields: [album_hash], references: [hash])
+  album_hash          String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([album_hash, image_resource_hash])
 }
 
 model Track {
-  hash String @id @db.VarChar(40)
+  hash String @id @db.Char(40)
 
   name    String   @db.Text
   artists String[] @db.Text
   album   String   @db.Text
 
-  spotify_id String? @db.VarChar(22)
+  spotify_id String? @db.Char(22)
   deezer_id  Int?
   genius_id  Int?
 
-  resources ImageResource[]
+
 
   duration Int?    @db.Integer // ms
   preview  String? @db.VarChar(255)
@@ -104,12 +120,22 @@ model Track {
   created_at DateTime  @default(now())
   updated_at DateTime?
 
-  features                TrackFeatures? @relation(fields: [trackFeaturesSpotify_id], references: [spotify_id])
-  trackFeaturesSpotify_id String?        @db.VarChar(22)
+  features                TrackFeatures?           @relation(fields: [trackFeaturesSpotify_id], references: [spotify_id])
+  trackFeaturesSpotify_id String?                  @db.Char(22)
+  trackImageResource      TrackImageResourceLink[]
+}
+
+model TrackImageResourceLink {
+  track               Track         @relation(fields: [track_hash], references: [hash])
+  track_hash          String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([track_hash, image_resource_hash])
 }
 
 model TrackFeatures {
-  spotify_id String @id @db.VarChar(22)
+  spotify_id String @id @db.Char(22)
 
   danceability     Float   @db.DoublePrecision
   energy           Float   @db.DoublePrecision
