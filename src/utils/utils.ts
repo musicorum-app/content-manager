@@ -1,4 +1,4 @@
-import { ImageSize } from '@prisma/client'
+import { Image, ImageResource, ImageSize } from '@prisma/client'
 import { DataSource } from '../typings/common'
 
 export function chunkArray<T> (arr: T[], size: number): T[][] {
@@ -112,3 +112,27 @@ export const isLastFMError = (
     'message' in error
   )
 }
+
+export const formatResource = (resource: (ImageResource & {
+  images: Image[]
+})) => ({
+  hash: resource.hash,
+  explicit: resource.explicit,
+  source: resource.source,
+  color_palette: {
+    vibrant: resource.palette_vibrant,
+    dark_vibrant: resource.palette_dark_vibrant,
+    light_vibrant: resource.palette_light_vibrant,
+    muted: resource.palette_muted,
+    dark_muted: resource.palette_dark_muted,
+    light_muted: resource.palette_light_muted
+  },
+  active: resource.active,
+  // convert to date because of redis data is a JSON
+  created_at: new Date(resource.created_at).getTime().toString(),
+  images: resource.images.map(image => ({
+    hash: image.hash,
+    url: image.url,
+    size: image.size
+  }))
+})

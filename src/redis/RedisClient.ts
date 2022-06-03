@@ -5,6 +5,7 @@ import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
 import { ArtistResponse, DataSource, MaybePrimitiveValues, Nullable } from '../typings/common'
 import { ArtistWithImageResources } from '../finders/artist'
+import { AlbumWithImageResources } from '../finders/album'
 
 export default class RedisClient {
   private logger: Signale
@@ -69,16 +70,16 @@ export default class RedisClient {
     return features && features !== {} ? this.convertNulls(features) as unknown as TrackFeatures : null
   }
 
-  public async getAlbum (hash: string): Promise<Album | null> {
-    const album = await this.client?.hgetall(hash)
-    if (Object.keys(album || {}).length === 0) await this.checkIfIsNull(hash)
-    return album && album !== {} ? this.convertNulls(album) as unknown as Album : null
+  public async getAlbum (hash: string): Promise<AlbumWithImageResources | null> {
+    const artist = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return artist && typeof artist === 'string' && artist !== '' ? JSON.parse(artist) as unknown as AlbumWithImageResources : null
   }
 
   public async getArtist (hash: string): Promise<ArtistWithImageResources | null> {
-    const artist = await this.client?.get(hash)
+    const album = await this.client?.get(hash)
     await this.checkIfIsNull(hash)
-    return artist && typeof artist === 'string' && artist !== '' ? JSON.parse(artist) as unknown as ArtistWithImageResources : null
+    return album && typeof album === 'string' && album !== '' ? JSON.parse(album) as unknown as ArtistWithImageResources : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {
@@ -94,11 +95,11 @@ export default class RedisClient {
     return value ? parseInt(value.toString()) : null
   }
 
-  public async checkIfIsNull (hash: string, source: DataSource): Promise<void> {
-    if (await this.client?.exists(this.createNotFoundKey(hash, source))) throw new NotFoundError()
+  public async checkIfIsNull (hash: string, source?: DataSource): Promise<void> {
+    if (await this.client?.exists(this.createNotFoundKey(hash, source || '_'))) throw new NotFoundError()
   }
 
-  public chechIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
+  public checkIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
     return new Promise(resolve => {
       this.checkIfIsNull(hash, source)
         .then(() => resolve(false))
@@ -111,7 +112,7 @@ export default class RedisClient {
     await this.client?.expire(hash, config.expiration.notFound)
   }
 
-  public createNotFoundKey (key: string, source: DataSource): string {
+  public createNotFoundKey (key: string, source: string): string {
     return `${source}:${key}::::nf`
   }
 

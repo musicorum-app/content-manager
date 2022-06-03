@@ -1,0 +1,11 @@
+POST http://localhost:8080/find/albums?popularity=true&palette=true&sources=spotify,lastfm
+Content-Type: application/json
+
+{
+    "albums": [
+        {
+            "name": "positioNS",
+            "artist": "Ariana grande"
+        }
+    ]
+}

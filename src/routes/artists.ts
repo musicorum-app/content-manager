@@ -1,4 +1,4 @@
-import { chunkArray, flatArray, parseQueryList, parseSourcesList } from '../utils/utils'
+import { chunkArray, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
 import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
 import { Signale } from 'signale'
@@ -31,7 +31,7 @@ const route = (ctx: Context) => {
             if (!artist) return null
             console.log(artist)
             if (retrievePalette) {
-              for (const artistImageResource of artist.artistImageResource) {
+              for (const artistImageResource of artist.artist_image_resource) {
                 const resource = artistImageResource.image_resource
                 if (!resource.palette_vibrant && resource.images.length > 0) {
                   const palette = await ctx.queueController.queueTask(

@@ -1,8 +1,8 @@
 import messages from '../messages'
-import { Context } from '../typings/common'
-import { Album, Track } from '@prisma/client'
-import { findAlbum } from '../finders/album'
+import { Context, DataSource } from '../typings/common'
+import { findAlbum, formatDisplayAlbum } from '../finders/album'
 import { Signale } from 'signale'
+import { parseSourcesList } from '../utils/utils'
 
 const logger = new Signale({ scope: 'AlbumFinder' })
 
@@ -18,7 +18,18 @@ const route = (ctx: Context) => {
       }
       logger.time('Find albums with length of ' + albums.length)
 
-      const promises = albums.map(a => findAlbum(ctx, a))
+      const sources = parseSourcesList(req.query.sources)
+      if (sources.length === 0) {
+        sources[0] = DataSource.Spotify
+      }
+
+      const promises = albums.map(
+        a => findAlbum(ctx, a, sources)
+          .then((album) => {
+            if (!album) return null
+            return formatDisplayAlbum(album)
+          })
+      )
 
       const result = await Promise.all(promises)
 

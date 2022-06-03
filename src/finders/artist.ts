@@ -1,7 +1,7 @@
 import { hash, hashArtist } from '../utils/hashing'
 import { ArtistResponse, Context, DataSource } from '../typings/common'
 import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
-import { fromListOrArray, imageSizeToSizeEnum, isLastFMError, normalizeString, valueOrNull } from '../utils/utils'
+import { formatResource, fromListOrArray, imageSizeToSizeEnum, isLastFMError, normalizeString, valueOrNull } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
@@ -9,7 +9,7 @@ import { QueueSource } from '../queue/sources'
 const logger = new Signale({ scope: 'ArtistFinder' })
 
 export type ArtistWithImageResources = Artist & {
-  artistImageResource: (ArtistImageResourceLink & {
+  artist_image_resource: (ArtistImageResourceLink & {
     image_resource: ImageResource & {
       images: Image[]
     }
@@ -82,7 +82,7 @@ export async function findArtist (
         if (resources.length > 0) {
           toCreate = {
             ...item,
-            artistImageResource: {
+            artist_image_resource: {
               create: resources.map(r => ({
                 image_resource: {
                   create: r
@@ -130,7 +130,7 @@ function getArtistFromPrisma (prisma: PrismaClient, hash: string) {
       hash
     },
     include: {
-      artistImageResource: {
+      artist_image_resource: {
         include: {
           image_resource: {
             include: {
@@ -151,7 +151,7 @@ function checkArtistSources (artist: ArtistWithImageResources, sources: DataSour
 }
 
 async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Prisma.ImageResourceCreateInput[], images: Prisma.ImageCreateManyInput[]) {
-  if (await ctx.redis.chechIfIsNotFound(item.hash, DataSource.Spotify)) {
+  if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.Spotify)) {
     throw new Error('Resource was not found previously')
   }
   const res = await ctx.queueController.queueTask(
@@ -183,10 +183,10 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
     })
     images.push(...selected.images.map(
       image => ({
-        hash: hash(image.url + item.hash),
+        hash: hash(image.url + resourceHash),
         url: image.url,
         size: imageSizeToSizeEnum(image.width, image.height),
-        image_resource: resourceHash
+        image_resource_hash: resourceHash
       })
     ))
   }
@@ -195,7 +195,7 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
 }
 
 async function findArtistFromLastFM (ctx: Context, item: Artist) {
-  if (await ctx.redis.chechIfIsNotFound(item.hash, DataSource.LastFM)) {
+  if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
     throw new Error('Resource was not found previously')
   }
 
@@ -222,7 +222,7 @@ export function formatDisplayArtist ({
   deezer_id,
   genres,
   similar,
-  artistImageResource,
+  artist_image_resource,
   tags,
   created_at
 }: ArtistWithImageResources): ArtistResponse {
@@ -231,27 +231,7 @@ export function formatDisplayArtist ({
     name,
     spotify_id: valueOrNull(spotify_id),
     deezer_id: valueOrNull(deezer_id ? Number(deezer_id) : null),
-    resources: artistImageResource.map(({ image_resource: resource }) => ({
-      hash: resource.hash,
-      explicit: resource.explicit,
-      source: resource.source,
-      color_palette: {
-        vibrant: resource.palette_vibrant,
-        dark_vibrant: resource.palette_dark_vibrant,
-        light_vibrant: resource.palette_light_vibrant,
-        muted: resource.palette_muted,
-        dark_muted: resource.palette_dark_muted,
-        light_muted: resource.palette_light_muted
-      },
-      active: resource.active,
-      // convert to date because of redis data is a JSON
-      created_at: new Date(resource.created_at).getTime().toString(),
-      images: resource.images.map(image => ({
-        hash: image.hash,
-        url: image.url,
-        size: image.size
-      }))
-    })),
+    resources: artist_image_resource.map(r => formatResource(r.image_resource)),
     genres: fromListOrArray(genres),
     similar: fromListOrArray(similar),
     tags: fromListOrArray(tags),

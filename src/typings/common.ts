@@ -41,7 +41,7 @@ export type ImageResponse = {
 }
 
 // Resources response
-export interface ImageResource {
+export interface ImageResourceResponse {
   hash: string
   explicit: Nullable<boolean>
   active: boolean
@@ -69,16 +69,13 @@ export interface AlbumResponse {
   hash: string
   name: string
   artists: string[]
+  tags: string[]
   release_date: Nullable<string>
 
   spotify_id: Nullable<string>
-  deezer_id: Nullable<string>
+  deezer_id: Nullable<number>
 
-  spotify_covers: string[]
-  spotify_covers_colors: string[]
-
-  deezer_cover: Nullable<string>
-  deezer_covers_colors: string[]
+  resources: ImageResourceResponse[]
 
   cached_at: string
 }
@@ -90,7 +87,7 @@ export interface ArtistResponse {
   spotify_id: Nullable<string>
   deezer_id: Nullable<number>
 
-  resources: ImageResource[]
+  resources: ImageResourceResponse[]
 
   genres: string[]
   tags: string[]

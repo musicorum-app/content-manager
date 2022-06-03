@@ -119,7 +119,7 @@ async function resolveDeezer (
   if (!needsDeezer) return track
   if (track.deezer_id) return track
 
-  if (await redis.chechIfIsNotFound(`${track.hash}:deezer-match`)) return track
+  if (await redis.checkIfIsNotFound(`${track.hash}:deezer-match`)) return track
 
   const {
     data: [res]
