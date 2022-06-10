@@ -113,19 +113,14 @@ async function handleFeatures (
     if (!track.spotify_id) return null
 
     const { spotify_id } = track
-    const r = Math.random() * 100
-    logger.time(`Redis search for ${spotify_id} (${r})`)
     let cached = await redis.getTrackFeatures(spotify_id)
-    logger.timeEnd(`Redis search for ${spotify_id} (${r})`)
 
     if (!cached || !cached.danceability) {
-      logger.time(`Postgres search for ${spotify_id} (${r})`)
       cached = await prisma.trackFeatures.findUnique({
         where: {
           spotify_id
         }
       })
-      logger.timeEnd(`Postgres search for ${spotify_id} (${r})`)
     }
 
     if (cached && cached.danceability) {
@@ -141,8 +136,7 @@ async function handleFeatures (
         loudness: Number(cached.loudness)
       }
     } else if (!features.has(spotify_id)) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      features.set(track.spotify_id!, null)
+      features.set(spotify_id, null)
       logger.debug('%s => (%s) feats: %s', track.hash, track.spotify_id, cached)
     }
   }))
@@ -220,28 +214,10 @@ async function handleFeatures (
       })
       .filter(f => !!f) as TrackFeatures[][]
 
-    prisma.trackFeatures.createMany(
-      {
-        data: flatArray(entries)
-      }
-    )
-      .then(doNothing)
-      .catch(async e => {
-        logger.error('Could not insert track features into database as many. Trying one by one', e)
-
-        for (const feat of flatArray(entries)) {
-          await prisma.trackFeatures.create({
-            data: feat
-          })
-            .then(doNothing)
-            .catch(e => {
-              logger.error('Could not insert track features into database', e)
-            })
-        }
-      })
-      .finally(() => {
-        logger.time(`Starting to fetch track features of length ${features.size}`)
-      })
+    prisma.trackFeatures.createMany({
+      data: flatArray(entries),
+      skipDuplicates: true
+    })
   })
 }
 

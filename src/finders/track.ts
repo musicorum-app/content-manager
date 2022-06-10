@@ -56,8 +56,7 @@ async function findTrack (
           explicit: found?.explicit ?? null,
           preferred_resource: found?.preferred_resource ?? null,
           created_at: found?.created_at ?? new Date(),
-          updated_at: found?.updated_at ?? new Date(),
-          features_id: found?.features_id ?? null
+          updated_at: found?.updated_at ?? new Date()
         }
         const resources: Prisma.ImageResourceCreateInput[] = []
         const images: Prisma.ImageCreateManyInput[] = []

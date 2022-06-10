@@ -124,8 +124,6 @@ model Track {
 
   preferred_resource   String?                  @db.Char(40)
 
-  features_id String? @db.Char(22)
-  features             TrackFeatures?           @relation(fields: [features_id], references: [spotify_id])
   track_image_resource TrackImageResourceLink[]
 }
 
@@ -150,5 +148,4 @@ model TrackFeatures {
   liveness         Float   @db.DoublePrecision
   valence          Float   @db.DoublePrecision
   tempo            Float   @db.DoublePrecision
-  track            Track[]
 }
