@@ -1,11 +1,12 @@
 import { Tedis } from 'tedis'
 import { Signale } from 'signale'
 import config from '../../config.json'
-import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
+import { Album, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
-import { ArtistResponse, DataSource, MaybePrimitiveValues, Nullable } from '../typings/common'
+import { DataSource, Nullable } from '../typings/common'
 import { ArtistWithImageResources } from '../finders/artist'
 import { AlbumWithImageResources } from '../finders/album'
+import { TrackWithImageResources } from '../finders/track'
 
 export default class RedisClient {
   private logger: Signale
@@ -44,12 +45,12 @@ export default class RedisClient {
   }
 
   public async setAlbum (key: string, album: Album) {
-    await this.client?.hmset(key, stringifyObject(album))
+    await this.client?.set(key, JSON.stringify(album))
     await this.client?.expire(key, config.expiration.albums)
   }
 
   public async setTrack (key: string, track: Track) {
-    await this.client?.hmset(key, stringifyObject(track))
+    await this.client?.set(key, JSON.stringify(track))
     await this.client?.expire(key, config.expiration.tracks)
   }
 
@@ -58,10 +59,10 @@ export default class RedisClient {
     await this.client?.expire(key + ':features', config.expiration.tracks)
   }
 
-  public async getTrack (hash: string): Promise<Track | null> {
-    const track = await this.client?.hgetall(hash)
-    if (Object.keys(track || {}).length === 0) await this.checkIfIsNull(hash)
-    return track && track !== {} ? this.convertNulls(track) as unknown as Track : null
+  public async getTrack (hash: string): Promise<TrackWithImageResources | null> {
+    const track = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return track && typeof track === 'string' && track !== '' ? JSON.parse(track) as unknown as TrackWithImageResources : null
   }
 
   public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {

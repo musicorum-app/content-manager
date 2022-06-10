@@ -1,5 +1,4 @@
-import { blue, blueBright, magentaBright, red, redBright } from 'colorette'
-import crypto from 'crypto'
+import { blue, magentaBright, redBright } from 'colorette'
 import { nanoid } from 'nanoid'
 import { performance } from 'perf_hooks'
 import { Signale } from 'signale'
@@ -21,9 +20,9 @@ export default class QueueController {
   public init () {
     this.logger.info('Starting service')
 
-    const sources = Object.keys(config.sources)
+    const sources = Object.values(QueueSource)
     for (const source of sources) {
-      this.logger.info('Source %s started with a TPS of %d.', source, (config as any).sources[source])
+      this.logger.info('Source %s started with a TPS of %d.', source, config.sources[source])
       this.queue.set(source as QueueSource, new Map())
       this.runningQueue.set(source as QueueSource, new Map())
     }
@@ -32,37 +31,35 @@ export default class QueueController {
   }
 
   private tick () {
-    Object.values(QueueSource)
-      .forEach((source: QueueSource) => {
-        const tps = config.sources[source]
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const queue = this.queue.get(source)!
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const running = this.runningQueue.get(source)!
-        const ableToDo = tps - running.size
+    for (const source of Object.values(QueueSource)) {
+      const tps = config.sources[source]
+      const queue = this.queue.get(source)
+      const running = this.runningQueue.get(source)
+      if (!running || !queue) return
+      const ableToDo = tps - running.size
 
-        if (queue.size > 0) {
-          this.logger.debug(`Actual queue size is ${redBright('%d/%d')} for ${redBright('%s')}`, running.size, queue.size, source)
-        }
+      if (queue.size > 0) {
+        this.logger.debug(`Actual queue size is ${redBright('%d/%d')} for ${redBright('%s')}`, running.size, queue.size, source)
+      }
 
-        if (queue.size <= ableToDo) {
-          queue.forEach((i, k) => {
-            running.set(k, i)
-            this.run(k, source, i)
-          })
-          queue.clear()
-        } else {
-          const iterator = queue.entries()
-          const reqs = []
-          for (let i = 0; i < ableToDo; i++) {
-            reqs.push(iterator.next().value)
-          }
-          reqs.forEach(([k, v]) => {
-            this.run(k, source, v)
-            queue.delete(k)
-          })
+      if (queue.size <= ableToDo) {
+        queue.forEach((i, k) => {
+          running.set(k, i)
+          this.run(k, source, i)
+        })
+        queue.clear()
+      } else {
+        const iterator = queue.entries()
+        const reqs = []
+        for (let i = 0; i < ableToDo; i++) {
+          reqs.push(iterator.next().value)
         }
-      })
+        reqs.forEach(([k, v]) => {
+          this.run(k, source, v)
+          queue.delete(k)
+        })
+      }
+    }
   }
 
   public async run<R> (id: string, source: QueueSource, { runnable, resolve, reject }: Task<R>) {
@@ -80,7 +77,7 @@ export default class QueueController {
       })
   }
 
-  public async queueTask<T = any> (source: QueueSource, runnable: TaskRunnable<T>): Promise<T> {
+  public async queueTask<T = unknown> (source: QueueSource, runnable: TaskRunnable<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       const task = {
         runnable,
@@ -89,7 +86,8 @@ export default class QueueController {
       } as Task<T>
       this.queue.get(source)?.set(this.createRandomId(), task)
 
-      if (this.runningQueue.size === 0 && this.queue.size === 0) {
+      // @todo: also tick if its inside the limit
+      if (this.runningQueue.get(source)?.size === 0 && this.queue.get(source)?.size === 1) {
         this.tick()
       }
     })

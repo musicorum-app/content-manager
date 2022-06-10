@@ -76,8 +76,10 @@ export interface AlbumResponse {
   deezer_id: Nullable<number>
 
   resources: ImageResourceResponse[]
+  preferred_resource: Nullable<string>
 
-  cached_at: string
+  created_at: string
+  updated_at: Nullable<string>
 }
 
 export interface ArtistResponse {
@@ -87,13 +89,16 @@ export interface ArtistResponse {
   spotify_id: Nullable<string>
   deezer_id: Nullable<number>
 
-  resources: ImageResourceResponse[]
-
   genres: string[]
   tags: string[]
   similar: string[]
   popularity: Nullable<number>
+
+  resources: ImageResourceResponse[]
+  preferred_resource: Nullable<string>
+
   created_at: string
+  updated_at: Nullable<string>
 }
 
 export interface TrackRequestItem {
@@ -118,20 +123,22 @@ export interface TrackResponse {
   hash: string
   name: string
   artists: string[]
-  album: string
+  album: Nullable<string>
 
   spotify_id: Nullable<string>
-  deezer_id: Nullable<string>
-  genius_id: Nullable<string>
+  deezer_id: Nullable<number>
+  genius_id: Nullable<number>
 
-  spotify_covers: string[]
-  spotify_covers_colors: string[]
-  deezer_cover: Nullable<string>
-  deezer_covers_colors: string[]
-
+  tags: string[]
   duration: Nullable<number>
-  preview: Nullable<string>,
-  features: Nullable<TrackFeaturesResponse>
+  preview: Nullable<string>
+  explicit: Nullable<boolean>
 
-  cached_at: string
+  resources: ImageResourceResponse[]
+  preferred_resource: Nullable<string>
+
+  created_at: string
+  updated_at: Nullable<string>
+
+  features: Nullable<TrackFeaturesResponse>
 }

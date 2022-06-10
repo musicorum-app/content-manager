@@ -3,7 +3,7 @@ import fetch from 'node-fetch'
 const API_URL = 'https://api.deezer.com/'
 
 class DeezerAPI {
-  static searchTrack (track: string, artist: string, album: string): Promise<DeezerTrackSearch> {
+  static searchTrack (track: string, artist: string, album?: string): Promise<DeezerTrackSearch> {
     album = album ? ` album:"${album}"` : ''
     const q = `track:"${track}" artist:"${artist}"${album}`
     return this.request('search/track', {

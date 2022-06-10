@@ -4,7 +4,7 @@ import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common
 import { Signale } from 'signale'
 import { findArtist, formatDisplayArtist } from '../finders/artist'
 import { QueueSource } from '../queue/sources'
-import { retrieveColorPalette } from '../modules/palette'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -29,22 +29,10 @@ const route = (ctx: Context) => {
         (a) => findArtist(ctx, a, sources)
           .then(async (artist) => {
             if (!artist) return null
-            console.log(artist)
             if (retrievePalette) {
-              for (const artistImageResource of artist.artist_image_resource) {
-                const resource = artistImageResource.image_resource
-                if (!resource.palette_vibrant && resource.images.length > 0) {
-                  const palette = await ctx.queueController.queueTask(
-                    QueueSource.PaletteResolver,
-                    () => retrieveColorPalette(ctx.prisma, resource)
-                  )
-                  artistImageResource.image_resource = {
-                    ...resource,
-                    ...palette
-                  }
-                }
+              if (await resolveResourcePalette(ctx, artist.artist_image_resource)) {
+                await ctx.redis.setArtist(artist.hash, artist)
               }
-              await ctx.redis.setArtist(artist.hash, artist)
             }
             return formatDisplayArtist(artist)
           })

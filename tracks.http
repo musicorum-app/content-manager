@@ -1,0 +1,25 @@
+POST http://localhost:8080/find/tracks?palette=true&sources=spotify,lastfm,deezer
+Content-Type: application/json
+
+{
+    "tracks": [
+        {
+            "name": "n95",
+            "artist": "kendrick lamar"
+        }
+    ]
+}
+
+###
+
+POST http://localhost:8080/find/tracks?palette=true&sources=lastfm,spotify&preview=true
+Content-Type: application/json
+
+{
+    "tracks": [
+        {
+            "name": "dead to me",
+            "artist": "kali uchis"
+        }
+    ]
+}

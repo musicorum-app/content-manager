@@ -1,4 +1,5 @@
 import { Album, AlbumImageResourceLink, Image, ImageResource, ImageResourceSource, ImageSize, Prisma, PrismaClient } from '@prisma/client'
+import { yellow } from 'colorette'
 import { Signale } from 'signale'
 import { QueueSource } from '../queue/sources'
 import { NotFoundError } from '../redis/RedisClient'
@@ -29,10 +30,11 @@ export async function findAlbum (
     const hashedAlbum = hashAlbum(name, artist)
 
     const exists = await redis.getAlbum(hashedAlbum)
-    if (exists && exists.hash) {
+    if (exists && exists.hash && checkAlbumSources(exists, sources)) {
       return exists
     } else {
       const found = await getAlbumFromPrisma(prisma, hashedAlbum)
+
       if (found && checkAlbumSources(found, sources)) {
         redis.setAlbum(hashedAlbum, found)
         return found
@@ -46,7 +48,8 @@ export async function findAlbum (
           tags: found?.tags ?? [],
           release_date: found?.release_date ?? null,
           created_at: found?.created_at ?? new Date(),
-          updated_at: found?.updated_at ?? new Date()
+          updated_at: found?.updated_at ?? new Date(),
+          preferred_resource: found?.preferred_resource ?? null
         }
         const resources: Prisma.ImageResourceCreateInput[] = []
         const images: Prisma.ImageCreateManyInput[] = []
@@ -74,14 +77,24 @@ export async function findAlbum (
         let toCreate: Prisma.AlbumCreateInput = item
 
         if (resources.length > 0) {
+          const preferred = resources.find(r => r.source === ImageResourceSource.SPOTIFY) ?? resources[0]
+
+          await prisma.imageResource.createMany({
+            data: resources,
+            skipDuplicates: true
+          })
+
           toCreate = {
             ...item,
+            preferred_resource: preferred.hash,
+            updated_at: new Date(),
             album_image_resource: {
-              create: resources.map(r => ({
-                image_resource: {
-                  create: r
-                }
-              }))
+              createMany: {
+                data: resources.map(r => ({
+                  image_resource_hash: r.hash
+                })),
+                skipDuplicates: true
+              }
             }
           }
         }
@@ -93,6 +106,9 @@ export async function findAlbum (
           create: toCreate,
           update: toCreate
         })
+          .catch(err => {
+            logger.warn(`Could not upsert artist [${yellow(hashedAlbum)}]`, err)
+          })
 
         if (images.length > 0) {
           await prisma.image.createMany({
@@ -151,7 +167,8 @@ async function findAlbumFromSpotify (
   images: Prisma.ImageCreateManyInput[]
 ) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.Spotify)) {
-    throw new Error('Resource was not found previously')
+    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    return
   }
 
   const res = await ctx.queueController.queueTask(
@@ -184,7 +201,7 @@ async function findAlbumFromSpotify (
     })
     images.push(...selected.images.map(
       image => ({
-        hash: hash(image.url + item.hash),
+        hash: hash(image.url),
         url: image.url,
         size: imageSizeToSizeEnum(image.width, image.height),
         image_resource_hash: resourceHash
@@ -200,7 +217,8 @@ async function findAlbumFromLastFM (
   images: Prisma.ImageCreateManyInput[]
 ) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
-    throw new Error('Resource was not found previously')
+    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    return
   }
 
   try {
@@ -213,7 +231,7 @@ async function findAlbumFromLastFM (
     )
 
     item.name = res.name
-    item.tags.push(...res.tags.map(t => t.name))
+    item.tags = [...item.tags, ...res.tags.map(t => t.name)]
     item.artists[0] = res.artist
 
     if (res.image.length >= 4 && res.image[3].url) {
@@ -224,7 +242,7 @@ async function findAlbumFromLastFM (
       })
 
       images.push({
-        hash: hash(res.image[3].url + resourceHash),
+        hash: hash(res.image[3].url),
         url: res.image[3].url,
         size: ImageSize.MEDIUM,
         image_resource_hash: resourceHash
@@ -247,17 +265,21 @@ export function formatDisplayAlbum ({
   deezer_id,
   tags,
   album_image_resource,
-  created_at
+  preferred_resource,
+  created_at,
+  updated_at
 }: AlbumWithImageResources): AlbumResponse {
   return {
-    hash: hash,
-    name: name,
+    hash,
+    name,
+    spotify_id: spotify_id,
+    deezer_id: deezer_id,
     artists: artists,
     tags: tags,
     release_date: release_date,
-    spotify_id: spotify_id,
-    deezer_id: deezer_id,
+    preferred_resource: preferred_resource || album_image_resource[0]?.image_resource_hash,
     resources: album_image_resource.map(r => formatResource(r.image_resource)),
-    cached_at: new Date(created_at).getTime().toString()
+    created_at: new Date(created_at).getTime().toString(),
+    updated_at: updated_at ? new Date(updated_at).getTime().toString() : null
   }
 }

@@ -3,6 +3,7 @@ import { Context, DataSource } from '../typings/common'
 import { findAlbum, formatDisplayAlbum } from '../finders/album'
 import { Signale } from 'signale'
 import { parseSourcesList } from '../utils/utils'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'AlbumFinder' })
 
@@ -17,6 +18,7 @@ const route = (ctx: Context) => {
           .json(messages.MISSING_PARAMS)
       }
       logger.time('Find albums with length of ' + albums.length)
+      const retrievePalette = req.query.palette === 'true'
 
       const sources = parseSourcesList(req.query.sources)
       if (sources.length === 0) {
@@ -25,8 +27,13 @@ const route = (ctx: Context) => {
 
       const promises = albums.map(
         a => findAlbum(ctx, a, sources)
-          .then((album) => {
+          .then(async (album) => {
             if (!album) return null
+            if (retrievePalette) {
+              if (await resolveResourcePalette(ctx, album.album_image_resource)) {
+                await ctx.redis.setAlbum(album.hash, album)
+              }
+            }
             return formatDisplayAlbum(album)
           })
       )

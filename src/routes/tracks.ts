@@ -1,18 +1,17 @@
-import { chunkArray, doNothing, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
+import { chunkArray, doNothing, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
 import findTrack, { formatDisplayTrack } from '../finders/track'
-import { Context, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
+import { Context, DataSource, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
 import { Signale } from 'signale'
 import { TrackFeatures } from '@prisma/client'
 import { QueueSource } from '../queue/sources'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'TrackFinder' })
 
 const route = (ctx: Context) => {
   const {
-    router,
-    redis,
-    prisma
+    router
   } = ctx
 
   router.post('/find/tracks', async (req, res) => {
@@ -25,16 +24,29 @@ const route = (ctx: Context) => {
           .json(messages.MISSING_PARAMS)
       }
 
-      const showPreview = req.query.preview === 'true'
-      const needsDeezer = req.query.deezer === 'true'
+      const sources = parseSourcesList(req.query.sources)
+      if (sources.length === 0) {
+        sources[0] = DataSource.Spotify
+      }
 
       logger.time('Find tracks with length of ' + tracks.length)
+      const retrievePalette = req.query.palette === 'true'
+      const preview = req.query.preview === 'true'
 
-      const promises = tracks.map(t => findTrack(ctx, t, showPreview, needsDeezer))
+      const promises = tracks.map(
+        t => findTrack(ctx, t, preview, sources)
+          .then(async track => {
+            if (!track) return null
+            if (retrievePalette) {
+              if (await resolveResourcePalette(ctx, track.track_image_resource)) {
+                await ctx.redis.setTrack(track.hash, track)
+              }
+            }
+            return formatDisplayTrack(track)
+          })
+      )
 
-      logger.time('Find tracks')
       let result = await Promise.all(promises)
-      logger.timeEnd('Find tracks')
 
       if (req.query.features === 'true') {
         result = await handleFeatures(ctx, result)
@@ -48,8 +60,7 @@ const route = (ctx: Context) => {
       res.status(500).json(messages.INTERNAL_ERROR)
     }
   })
-
-  router.get('/tracks', async (req, res) => {
+/* router.get('/tracks', async (req, res) => {
     const tracksQuery = req.query.tracks
     if (!tracksQuery) {
       return res
@@ -88,7 +99,7 @@ const route = (ctx: Context) => {
     res.json({
       tracks: result
     })
-  })
+  }) */
 }
 
 async function handleFeatures (

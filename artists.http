@@ -9,7 +9,7 @@ Content-Type: application/json
 
 ###
 
-POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm
+POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm,spotify
 Content-Type: application/json
 
 {
@@ -20,31 +20,42 @@ Content-Type: application/json
 
 ###
 
-
-
-
-
-
-
-
-
-
-
-
-
 POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=spotify
 Content-Type: application/json
 
 {
     "artists": [
-        "Doja Cat", "Red Velvet", "Kali Uchis", "Loona", "Kendrick Lamar"
+        "Willow", "gfriend", "gfriend", "gfriend", "gfriend"
+    ]
+}
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
+
+POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm
+Content-Type: application/json
+
+{
+    "artists": [
+        "Azealia Banks","Björk","Janet Jackson","Erykah Badu","IC3PEAK","ROSALÍA","Arca","Ariana Grande","Yaeji","Kali Uchis","Karol Conká","MC Tha"
     ]
 }
 
 
 ###
 
-POST http://localhost:8080/find/artists?sources=lastfm,spotify&palette=true
+POST http://localhost:8080/find/artists?sources=lastfm,spotify&palette=true&popularity=true
 Content-Type: application/json
 
 {"artists": ["Azealia Banks","Björk","Janet Jackson","Erykah Badu","IC3PEAK","ROSALÍA","Arca","Ariana Grande","Yaeji","Kali Uchis","Karol Conká","MC Tha","Grimes","Fiona Apple","Alicia Keys","Linn da Quebrada","LUDMILLA","Jill Scott","Loona","Kero Kero Bonito","Poppy","Billie Eilish","Solange","DUDA BEAT","Samantha Machado","Lady Gaga","Mariah Carey","Kelela","Doja Cat","Elza Soares","Mitski","Gal Costa","M.I.A.","Marília Mendonça","Estelle","Sudan Archives","She","Rina Sawayama","Amy Winehouse","Róisín Murphy","Clairo","Beyoncé","Little Simz","Allie X","Marina Sena","Destiny's Child","Ms. Lauryn Hill","cupcakKe","Luísa Sonza","Kedr Livanskiy", "Doja Cat", "Red Velvet", "Kali Uchis", "Loona", "Kendrick Lamar", "Lana Del Rey", "Charli XCX", "Stay-C", "Twice", "SUNMI", "Rina Sawayama", "Willow", "MGMT", "Ariana Grande", "Pabllo Vittar", "Sky Ferreira", "Jessie Ware", "Tove Lo", "LOO\u03a0\u0394 / ODD EYE CIRCLE", "IZ*ONE", "Marina Sena", "April", "Japanese Breakfast", "Tyler, the Creator", "Megan Thee Stallion", "Red Velvet - IRENE & SEULGI", "Linn da Quebrada", "(G)I-DLE", "Chloe x Halle", "LOONA/yyxy", "Marina", "MAMAMOO", "\uc18c\ub140\uc2dc\ub300", "ITZY", "Kanye West", "Azealia Banks", "Chl\u00f6e", "KAYTRANADA", "LIL BOODANG", "valeria almeida", "\uc5ec\uc790\uce5c\uad6c", "CHUNG HA", "JO YURI", "Orange Caramel", "Yaeji", "aespa", "Clip", "IU", "OH MY GIRL", "Olivia Rodrigo", "PinkPantheress", "The Weeknd", "Tinashe", "YUKIKA", "AOA", "Bibi", "BTS", "Coco & Clair Clair", "Everglow", "f(x)", "Gwen Stefani", "GWSN", "Lil Nas X", "Lizzo", "miss A", "SZA", "Caroline Polachek", "Travi$ Scott", "Wonder Girls", "2NE1", "Amaarae", "Boa", "Bree Runway", "Dua Lipa", "Girl's Day", "Joey Bada$$", "LADIES' CODE", "Solange", "Steve Lacy", "Baby Keem", "Cardi B", "DUDA BEAT", "fromis_9", "Grimes", "Kim Petras", "LEE HI", "Stellar", "Summer Walker", "Ty Dolla $ign", "A$AP Rocky", "Anitta", "Boogie Sunshine", "Drake", "ENHYPEN", "FKA twigs", "girl in red", "GoldLink", "IVE", "JEON SOMI", "Kai"]}
