@@ -4,7 +4,7 @@ Content-Type: application/json
 {
     "albums": [
         {
-            "name": "pov",
+            "name": "7 rings",
             "artist": "Ariana grande"
         }
     ]

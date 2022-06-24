@@ -43,6 +43,9 @@ const route = (ctx: Context) => {
       logger.timeEnd('Find albums with length of ' + albums.length)
 
       res.json(result)
+
+      ctx.monitoring.metrics.findersCounter.labels({ type: 'albums' }).inc()
+      ctx.monitoring.metrics.resourcesCounter.labels({ type: 'albums' }).inc(albums.length)
     } catch (e) {
       logger.error(e)
       res

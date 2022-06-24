@@ -48,6 +48,9 @@ const route = (ctx: Context) => {
       logger.timeEnd('Find artists with length of ' + artists.length)
 
       res.json(result)
+
+      ctx.monitoring.metrics.findersCounter.labels({ type: 'artists' }).inc()
+      ctx.monitoring.metrics.resourcesCounter.labels({ type: 'artists' }).inc(artists.length)
     } catch (e) {
       logger.error(e)
       res

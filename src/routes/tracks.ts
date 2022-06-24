@@ -55,51 +55,53 @@ const route = (ctx: Context) => {
       logger.timeEnd('Find tracks with length of ' + tracks.length)
 
       res.json(result)
+      ctx.monitoring.metrics.findersCounter.labels({ type: 'tracks' }).inc()
+      ctx.monitoring.metrics.resourcesCounter.labels({ type: 'tracks' }).inc(tracks.length)
     } catch (e) {
       logger.error(e)
       res.status(500).json(messages.INTERNAL_ERROR)
     }
   })
-/* router.get('/tracks', async (req, res) => {
-    const tracksQuery = req.query.tracks
-    if (!tracksQuery) {
-      return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
-    }
-    const tracks = tracksQuery.toString().split(',')
-
-    if (!tracks || !Array.isArray(tracks)) {
-      return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
-    }
-
-    let result = await Promise.all(tracks.map(async track => {
-      try {
-        const cache = await redis.getTrack(track)
-        if (cache) {
-          return formatDisplayTrack(cache)
-        } else {
-          const found = await prisma.track.findUnique({
-            where: { hash: track }
-          })
-          return found ? formatDisplayTrack(found) : null
-        }
-      } catch (e) {
-        logger.error(e)
-        return null
+  /* router.get('/tracks', async (req, res) => {
+      const tracksQuery = req.query.tracks
+      if (!tracksQuery) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
       }
-    }))
+      const tracks = tracksQuery.toString().split(',')
 
-    if (req.query.features === 'true') {
-      result = await handleFeatures(ctx, result)
-    }
+      if (!tracks || !Array.isArray(tracks)) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
+      }
 
-    res.json({
-      tracks: result
-    })
-  }) */
+      let result = await Promise.all(tracks.map(async track => {
+        try {
+          const cache = await redis.getTrack(track)
+          if (cache) {
+            return formatDisplayTrack(cache)
+          } else {
+            const found = await prisma.track.findUnique({
+              where: { hash: track }
+            })
+            return found ? formatDisplayTrack(found) : null
+          }
+        } catch (e) {
+          logger.error(e)
+          return null
+        }
+      }))
+
+      if (req.query.features === 'true') {
+        result = await handleFeatures(ctx, result)
+      }
+
+      res.json({
+        tracks: result
+      })
+    }) */
 }
 
 async function handleFeatures (
@@ -217,7 +219,7 @@ async function handleFeatures (
     prisma.trackFeatures.createMany({
       data: flatArray(entries),
       skipDuplicates: true
-    })
+    }).then(() => logger.info(`${entries.length} track features saved.`))
   })
 }
 

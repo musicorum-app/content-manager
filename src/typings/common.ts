@@ -2,6 +2,7 @@ import { ImageResourceSource, ImageSize, PrismaClient } from '@prisma/client'
 import { Router } from 'express'
 import LastFM from 'lastfm-typed'
 import SpotifyAPI from '../apis/Spotify'
+import { Metrics } from '../modules/monitoring'
 import QueueController from '../queue/QueueController'
 import RedisClient from '../redis/RedisClient'
 
@@ -32,6 +33,7 @@ export interface Context {
   spotifyApi: SpotifyAPI
   prisma: PrismaClient
   lastfm: LastFM
+  monitoring: Metrics
 }
 
 export type ImageResponse = {
