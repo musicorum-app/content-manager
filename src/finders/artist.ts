@@ -1,81 +1,144 @@
-import { hashArtist } from '../utils/hashing'
-import { ArtistResponse, Context } from '../typings/common'
-import { Artist } from '@prisma/client'
-import { doNothing, formatList, formatListBack, normalizeString, valueOrNull } from '../utils/utils'
+import { hash, hashArtist } from '../utils/hashing'
+import { ArtistResponse, Context, DataSource } from '../typings/common'
+import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
+import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
+import { yellow } from 'colorette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
+export type ArtistWithImageResources = Artist & {
+  artist_image_resource: (ArtistImageResourceLink & {
+    image_resource: ImageResource & {
+      images: Image[]
+    }
+  })[]
+}
+
+export type CreateImageResourceWithImages = Prisma.ImageResourceCreateInput & {
+  images: Prisma.ImageCreateInput[]
+}
+
 export async function findArtist (
-  {
-    spotifyApi,
+  ctx: Context,
+  name: string,
+  sources: DataSource[]
+): Promise<ArtistWithImageResources | null> {
+  const {
     redis,
-    prisma,
-    queueController
-  }: Context, name: string): Promise<ArtistResponse | null> {
+    prisma
+  } = ctx
+  const end = ctx.monitoring.startResourcesTimer('artists')
+
   try {
-    const hash = hashArtist(name)
+    const hashedArtist = hashArtist(name)
 
-    const exists = await redis.getArtist(hash)
-    if (exists && exists.hash) {
-      return formatDisplayArtist(exists)
+    const exists = await redis.getArtist(hashedArtist)
+    if (exists && exists.hash && checkArtistSources(exists, sources)) {
+      end(1)
+      return exists
     } else {
-      const found = await prisma.artist.findUnique({
-        where: {
-          hash
-        }
-      })
-
-      if (found) {
-        redis.setArtist(hash, found)
-        return formatDisplayArtist(found)
+      const found = await getArtistFromPrisma(prisma, hashedArtist)
+      if (found && checkArtistSources(found, sources)) {
+        redis.setArtist(hashedArtist, found)
+        end(2)
+        return found
       } else {
-        logger.time(`Artist task for ${name}`)
-        const res = await queueController.queueTask<SpotifySearchResponse>(
-          QueueSource.Spotify,
-          () => spotifyApi.searchArtist(name)
+        const item: Artist = {
+          hash: hashedArtist,
+          name: found?.name ?? name,
+          spotify_id: found?.spotify_id ?? null,
+          deezer_id: found?.deezer_id ?? null,
+          genres: found?.genres ?? [],
+          similar: found?.similar ?? [],
+          tags: found?.tags ?? [],
+          preferred_resource: found?.preferred_resource ?? null,
+          created_at: found?.created_at ?? new Date(),
+          updated_at: found?.updated_at ?? new Date()
+        }
+
+        const resources: Prisma.ImageResourceCreateInput[] = []
+        const images: Prisma.ImageCreateManyInput[] = []
+
+        let foundOne = false
+
+        await Promise.all(
+          sources.map(async source => {
+            try {
+              if (source === DataSource.Spotify && !item.spotify_id) {
+                await findArtistFromSpotify(ctx, item, resources, images)
+                foundOne = true
+              } else if (source === DataSource.LastFM && !(item.similar.length || item.tags.length)) {
+                await findArtistFromLastFM(ctx, item)
+                foundOne = true
+              }
+            } catch (error) {
+              logger.warn(`Problem while finding ${item.name} [${source}]: ${error}`)
+            }
+          })
         )
 
-        logger.timeEnd(`Artist task for ${name}`)
-
-        if (res.artists?.items.length === 0) {
-          redis.setAsNotFound(hash)
-          return null
+        if (!foundOne) {
+          end(2)
+          return found
         }
 
-        let selected = res.artists?.items.find(a => normalizeString(a.name) === normalizeString(name)) as SpotifyArtist
+        let toCreate: Prisma.ArtistCreateInput = item
 
-        if (!selected) {
-          selected = res.artists?.items[0] as SpotifyArtist
+        if (resources.length > 0) {
+          const preferred = resources.find(r => r.source === ImageResourceSource.SPOTIFY) ?? resources[0]
+
+          await prisma.imageResource.createMany({
+            data: resources,
+            skipDuplicates: true
+          })
+
+          toCreate = {
+            ...item,
+            updated_at: new Date(),
+            preferred_resource: preferred.hash,
+            artist_image_resource: {
+              createMany: {
+                data: resources.map(r => ({
+                  image_resource_hash: r.hash
+                })),
+                skipDuplicates: true
+              }
+            }
+          }
         }
 
-        const item: Artist = {
-          hash,
-          name: selected.name,
-          spotify_id: selected.id,
-          deezer_id: null,
-          spotify_images: formatList(selected.images.map(i => i.url)),
-          spotify_images_colors: null,
-          deezer_image: null,
-          deezer_images_colors: null,
-          genres: formatList(selected.genres),
-          cached_at: (new Date().getTime()).toString()
-        }
-
-        redis.setArtist(hash, item)
-        redis.setPopularity(selected.id, selected.popularity)
-
-        prisma.artist.create({
-          data: item
+        await prisma.artist.upsert({
+          where: {
+            hash: hashedArtist
+          },
+          create: toCreate,
+          update: toCreate
         })
-          .then(() => doNothing())
-          .catch(err => logger.error(err))
-        return formatDisplayArtist(item)
+          .catch(err => {
+            logger.warn(`Could not upsert artist [${yellow(hashedArtist)}]`, err)
+          })
+
+        if (images.length > 0) {
+          await prisma.image.createMany({
+            data: images,
+            skipDuplicates: true
+          })
+        }
+
+        const entry = await getArtistFromPrisma(prisma, hashedArtist)
+        if (!entry) throw new Error('This artist could not be saved.')
+
+        redis.setArtist(hashedArtist, entry)
+
+        end(3)
+        return entry
       }
     }
   } catch (e) {
+    end(0)
     if (e instanceof NotFoundError) {
       return null
     }
@@ -84,29 +147,128 @@ export async function findArtist (
   }
 }
 
-function formatDisplayArtist ({
+function getArtistFromPrisma (prisma: PrismaClient, hash: string) {
+  return prisma.artist.findUnique({
+    where: {
+      hash
+    },
+    include: {
+      artist_image_resource: {
+        include: {
+          image_resource: {
+            include: {
+              images: true
+            }
+          }
+        }
+      }
+    }
+  })
+}
+
+function checkArtistSources (artist: ArtistWithImageResources, sources: DataSource[]) {
+  if (sources.includes(DataSource.Spotify) && !artist.spotify_id) return false
+  if (sources.includes(DataSource.LastFM) && !(artist.tags.length || artist.similar.length)) return false
+  if (sources.includes(DataSource.Deezer) && !artist.deezer_id) return false
+  return true
+}
+
+async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Prisma.ImageResourceCreateInput[], images: Prisma.ImageCreateManyInput[]) {
+  if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.Spotify)) {
+    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    return
+  }
+  const end = ctx.monitoring.startExternalRequestTimer(DataSource.Spotify, 'searchArtist')
+  const res = await ctx.queueController.queueTask(
+    QueueSource.Spotify,
+    () => ctx.spotifyApi.searchArtist(item.name)
+  )
+  end()
+
+  if (res.artists?.items.length === 0) {
+    ctx.redis.setAsNotFound(item.hash, DataSource.Spotify)
+    throw new Error('Could not find artist on spotify')
+  }
+
+  let selected = res.artists?.items
+    .find(a => normalizeString(a.name) === normalizeString(item.name)) as SpotifyArtist
+
+  if (!selected) {
+    selected = res.artists?.items[0] as SpotifyArtist
+  }
+
+  item.name = selected.name
+  item.spotify_id = selected.id
+  item.genres.push(...selected.genres)
+
+  if (selected.images && selected.images.length > 0 && selected.images[0].url) {
+    const resourceHash = hash(selected.images.map(i => i.url).join(''))
+    resources.push({
+      hash: resourceHash,
+      source: ImageResourceSource.SPOTIFY
+    })
+    images.push(...selected.images.map(
+      image => ({
+        hash: hash(image.url),
+        url: image.url,
+        size: imageSizeToSizeEnum(image.width, image.height),
+        image_resource_hash: resourceHash
+      })
+    ))
+  }
+
+  await ctx.redis.setPopularity(selected.id, selected.popularity)
+}
+
+async function findArtistFromLastFM (ctx: Context, item: Artist) {
+  if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
+    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    return
+  }
+
+  try {
+    const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'artist.getInfo')
+    const res = await ctx.queueController.queueTask(
+      QueueSource.LastFM,
+      () => ctx.lastfm.artist.getInfo({ artist: item.name })
+    )
+    end()
+
+    item.tags.push(...res.tags.map(t => t.name))
+    item.similar.push(...res.similarArtists.map(a => a.name))
+  } catch (err) {
+    if (isLastFMError(err) && err.code === 6) {
+      ctx.redis.setAsNotFound(item.hash, DataSource.LastFM)
+      throw new Error('Could not find artist on lastfm')
+    } else throw err
+  }
+}
+
+export function formatDisplayArtist ({
   hash,
   name,
   spotify_id,
   deezer_id,
-  spotify_images,
-  spotify_images_colors,
-  deezer_image,
-  deezer_images_colors,
   genres,
-  cached_at
-}: Artist): ArtistResponse {
+  similar,
+  artist_image_resource,
+  preferred_resource,
+  tags,
+  created_at,
+  updated_at
+}: ArtistWithImageResources): ArtistResponse {
   return {
     hash,
     name,
-    spotify_id: valueOrNull(spotify_id),
-    deezer_id: valueOrNull(deezer_id),
-    spotify_images: formatListBack(spotify_images),
-    spotify_images_colors: formatListBack(spotify_images_colors),
-    deezer_image: valueOrNull(deezer_image),
-    deezer_images_colors: formatListBack(deezer_images_colors),
-    genres: formatListBack(genres),
+    spotify_id: spotify_id,
+    deezer_id: deezer_id,
+    genres: genres,
+    similar: similar,
+    tags: tags,
     popularity: null,
-    cached_at
+    preferred_resource: preferred_resource || artist_image_resource[0]?.image_resource.hash || null,
+    resources: artist_image_resource.map(r => formatResource(r.image_resource)),
+    created_at: new Date(created_at).getTime().toString(),
+    updated_at: updated_at ? new Date(updated_at).getTime().toString() : null
   }
 }

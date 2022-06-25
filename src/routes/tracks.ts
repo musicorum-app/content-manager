@@ -1,21 +1,23 @@
-import { chunkArray, doNothing, flatArray, numerifyObject, stringifyObject } from '../utils/utils'
+import { chunkArray, doNothing, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
 import findTrack, { formatDisplayTrack } from '../finders/track'
-import { Context, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
+import { Context, DataSource, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
 import { Signale } from 'signale'
 import { TrackFeatures } from '@prisma/client'
 import { QueueSource } from '../queue/sources'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'TrackFinder' })
 
 const route = (ctx: Context) => {
   const {
-    router,
-    redis,
-    prisma
+    router
   } = ctx
 
   router.post('/find/tracks', async (req, res) => {
+    const end = ctx.monitoring.metrics.requestHistogram.labels({
+      endpoint: '/find/tracks'
+    }).startTimer()
     try {
       const { tracks } = req.body
 
@@ -25,16 +27,29 @@ const route = (ctx: Context) => {
           .json(messages.MISSING_PARAMS)
       }
 
-      const showPreview = req.query.preview === 'true'
-      const needsDeezer = req.query.deezer === 'true'
+      const sources = parseSourcesList(req.query.sources)
+      if (sources.length === 0) {
+        sources[0] = DataSource.Spotify
+      }
 
       logger.time('Find tracks with length of ' + tracks.length)
+      const retrievePalette = req.query.palette === 'true'
+      const preview = req.query.preview === 'true'
 
-      const promises = tracks.map(t => findTrack(ctx, t, showPreview, needsDeezer))
+      const promises = tracks.map(
+        t => findTrack(ctx, t, preview, sources)
+          .then(async track => {
+            if (!track) return null
+            if (retrievePalette) {
+              if (await resolveResourcePalette(ctx, track.track_image_resource)) {
+                await ctx.redis.setTrack(track.hash, track)
+              }
+            }
+            return formatDisplayTrack(track)
+          })
+      )
 
-      logger.time('Find tracks')
       let result = await Promise.all(promises)
-      logger.timeEnd('Find tracks')
 
       if (req.query.features === 'true') {
         result = await handleFeatures(ctx, result)
@@ -43,52 +58,53 @@ const route = (ctx: Context) => {
       logger.timeEnd('Find tracks with length of ' + tracks.length)
 
       res.json(result)
+      ctx.monitoring.metrics.findersCounter.labels({ type: 'tracks' }).inc()
     } catch (e) {
       logger.error(e)
       res.status(500).json(messages.INTERNAL_ERROR)
     }
+    end()
   })
-
-  router.get('/tracks', async (req, res) => {
-    const tracksQuery = req.query.tracks
-    if (!tracksQuery) {
-      return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
-    }
-    const tracks = tracksQuery.toString().split(',')
-
-    if (!tracks || !Array.isArray(tracks)) {
-      return res
-        .status(400)
-        .json(messages.MISSING_PARAMS)
-    }
-
-    let result = await Promise.all(tracks.map(async track => {
-      try {
-        const cache = await redis.getTrack(track)
-        if (cache) {
-          return formatDisplayTrack(cache)
-        } else {
-          const found = await prisma.track.findUnique({
-            where: { hash: track }
-          })
-          return found ? formatDisplayTrack(found) : null
-        }
-      } catch (e) {
-        logger.error(e)
-        return null
+  /* router.get('/tracks', async (req, res) => {
+      const tracksQuery = req.query.tracks
+      if (!tracksQuery) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
       }
-    }))
+      const tracks = tracksQuery.toString().split(',')
 
-    if (req.query.features === 'true') {
-      result = await handleFeatures(ctx, result)
-    }
+      if (!tracks || !Array.isArray(tracks)) {
+        return res
+          .status(400)
+          .json(messages.MISSING_PARAMS)
+      }
 
-    res.json({
-      tracks: result
-    })
-  })
+      let result = await Promise.all(tracks.map(async track => {
+        try {
+          const cache = await redis.getTrack(track)
+          if (cache) {
+            return formatDisplayTrack(cache)
+          } else {
+            const found = await prisma.track.findUnique({
+              where: { hash: track }
+            })
+            return found ? formatDisplayTrack(found) : null
+          }
+        } catch (e) {
+          logger.error(e)
+          return null
+        }
+      }))
+
+      if (req.query.features === 'true') {
+        result = await handleFeatures(ctx, result)
+      }
+
+      res.json({
+        tracks: result
+      })
+    }) */
 }
 
 async function handleFeatures (
@@ -102,19 +118,14 @@ async function handleFeatures (
     if (!track.spotify_id) return null
 
     const { spotify_id } = track
-    const r = Math.random() * 100
-    logger.time(`Redis search for ${spotify_id} (${r})`)
     let cached = await redis.getTrackFeatures(spotify_id)
-    logger.timeEnd(`Redis search for ${spotify_id} (${r})`)
 
     if (!cached || !cached.danceability) {
-      logger.time(`Postgres search for ${spotify_id} (${r})`)
       cached = await prisma.trackFeatures.findUnique({
         where: {
           spotify_id
         }
       })
-      logger.timeEnd(`Postgres search for ${spotify_id} (${r})`)
     }
 
     if (cached && cached.danceability) {
@@ -130,8 +141,7 @@ async function handleFeatures (
         loudness: Number(cached.loudness)
       }
     } else if (!features.has(spotify_id)) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      features.set(track.spotify_id!, null)
+      features.set(spotify_id, null)
       logger.debug('%s => (%s) feats: %s', track.hash, track.spotify_id, cached)
     }
   }))
@@ -209,28 +219,10 @@ async function handleFeatures (
       })
       .filter(f => !!f) as TrackFeatures[][]
 
-    prisma.trackFeatures.createMany(
-      {
-        data: flatArray(entries)
-      }
-    )
-      .then(doNothing)
-      .catch(async e => {
-        logger.error('Could not insert track features into database as many. Trying one by one', e)
-
-        for (const feat of flatArray(entries)) {
-          await prisma.trackFeatures.create({
-            data: feat
-          })
-            .then(doNothing)
-            .catch(e => {
-              logger.error('Could not insert track features into database', e)
-            })
-        }
-      })
-      .finally(() => {
-        logger.time(`Starting to fetch track features of length ${features.size}`)
-      })
+    prisma.trackFeatures.createMany({
+      data: flatArray(entries),
+      skipDuplicates: true
+    }).then(() => logger.info(`${entries.length} track features saved.`))
   })
 }
 

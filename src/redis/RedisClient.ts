@@ -1,11 +1,12 @@
 import { Tedis } from 'tedis'
 import { Signale } from 'signale'
 import config from '../../config.json'
-import { Album, Artist, Track, TrackFeatures } from '@prisma/client'
+import { Album, Track, TrackFeatures } from '@prisma/client'
 import { stringifyObject } from '../utils/utils'
-import { Nullable } from '../typings/common'
-
-const notFoundValue = '␀'
+import { DataSource, Nullable } from '../typings/common'
+import { ArtistWithImageResources } from '../finders/artist'
+import { AlbumWithImageResources } from '../finders/album'
+import { TrackWithImageResources } from '../finders/track'
 
 export default class RedisClient {
   private logger: Signale
@@ -37,18 +38,19 @@ export default class RedisClient {
     })
   }
 
-  public async setArtist (key: string, artist: Artist) {
-    await this.client?.hmset(key, stringifyObject(artist))
+  public async setArtist (key: string, artist: ArtistWithImageResources) {
+    // await this.client?.hmset(key, stringifyObject(artist))
+    await this.client?.set(key, JSON.stringify(artist))
     await this.client?.expire(key, config.expiration.artists)
   }
 
   public async setAlbum (key: string, album: Album) {
-    await this.client?.hmset(key, stringifyObject(album))
+    await this.client?.set(key, JSON.stringify(album))
     await this.client?.expire(key, config.expiration.albums)
   }
 
   public async setTrack (key: string, track: Track) {
-    await this.client?.hmset(key, stringifyObject(track))
+    await this.client?.set(key, JSON.stringify(track))
     await this.client?.expire(key, config.expiration.tracks)
   }
 
@@ -57,10 +59,10 @@ export default class RedisClient {
     await this.client?.expire(key + ':features', config.expiration.tracks)
   }
 
-  public async getTrack (hash: string): Promise<Track | null> {
-    const track = await this.client?.hgetall(hash)
-    if (Object.keys(track || {}).length === 0) await this.checkIfIsNull(hash)
-    return track && track !== {} ? this.convertNulls(track) as unknown as Track : null
+  public async getTrack (hash: string): Promise<TrackWithImageResources | null> {
+    const track = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return track && typeof track === 'string' && track !== '' ? JSON.parse(track) as unknown as TrackWithImageResources : null
   }
 
   public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {
@@ -69,16 +71,16 @@ export default class RedisClient {
     return features && features !== {} ? this.convertNulls(features) as unknown as TrackFeatures : null
   }
 
-  public async getAlbum (hash: string): Promise<Album | null> {
-    const album = await this.client?.hgetall(hash)
-    if (Object.keys(album || {}).length === 0) await this.checkIfIsNull(hash)
-    return album && album !== {} ? this.convertNulls(album) as unknown as Album : null
+  public async getAlbum (hash: string): Promise<AlbumWithImageResources | null> {
+    const artist = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return artist && typeof artist === 'string' && artist !== '' ? JSON.parse(artist) as unknown as AlbumWithImageResources : null
   }
 
-  public async getArtist (hash: string): Promise<Artist | null> {
-    const artist = await this.client?.hgetall(hash)
-    if (Object.keys(artist || {}).length === 0) await this.checkIfIsNull(hash)
-    return artist && artist !== {} ? this.convertNulls(artist) as unknown as Artist : null
+  public async getArtist (hash: string): Promise<ArtistWithImageResources | null> {
+    const album = await this.client?.get(hash)
+    await this.checkIfIsNull(hash)
+    return album && typeof album === 'string' && album !== '' ? JSON.parse(album) as unknown as ArtistWithImageResources : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {
@@ -94,25 +96,25 @@ export default class RedisClient {
     return value ? parseInt(value.toString()) : null
   }
 
-  public async checkIfIsNull (hash: string): Promise<void> {
-    if (await this.client?.exists(this.createNotFoundKey(hash))) throw new NotFoundError()
+  public async checkIfIsNull (hash: string, source?: DataSource): Promise<void> {
+    if (await this.client?.exists(this.createNotFoundKey(hash, source || '_'))) throw new NotFoundError()
   }
 
-  public chechIfIsNotFound (hash: string): Promise<boolean> {
+  public checkIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
     return new Promise(resolve => {
-      this.checkIfIsNull(hash)
+      this.checkIfIsNull(hash, source)
         .then(() => resolve(false))
         .catch(() => resolve(true))
     })
   }
 
-  public async setAsNotFound (hash: string) {
-    await this.client?.set(this.createNotFoundKey(hash), '1')
+  public async setAsNotFound (hash: string, source: DataSource) {
+    await this.client?.set(this.createNotFoundKey(hash, source), '1')
     await this.client?.expire(hash, config.expiration.notFound)
   }
 
-  public createNotFoundKey (key: string): string {
-    return `${key}::::nf`
+  public createNotFoundKey (key: string, source: string): string {
+    return `${source}:${key}::::nf`
   }
 
   public convertNulls (obj: Record<string, unknown>): Record<string, Nullable<unknown>> {

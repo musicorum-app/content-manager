@@ -1,78 +1,151 @@
 datasource db {
-  provider      = "postgresql"
-  url           = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl"]
 }
 
+enum ImageSize {
+  EXTRA_SMALL
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+  UNKNOWN
+}
+
+model Image {
+  hash                String    @id @db.Char(40)
+  image_resource_hash String    @db.Char(40)
+  size                ImageSize @default(UNKNOWN)
+  url                 String    @db.VarChar(256)
+
+  image_resource ImageResource? @relation(fields: [image_resource_hash], references: [hash])
+}
+
+enum ImageResourceSource {
+  SPOTIFY
+  DEEZER
+  LASTFM
+}
+
+model ImageResource {
+  hash     String              @id @db.Char(40)
+  explicit Boolean?
+  active   Boolean             @default(true)
+  source   ImageResourceSource
+
+  palette_vibrant       String? @db.Char(7)
+  palette_dark_vibrant  String? @db.Char(7)
+  palette_light_vibrant String? @db.Char(7)
+  palette_muted         String? @db.Char(7)
+  palette_dark_muted    String? @db.Char(7)
+  palette_light_muted   String? @db.Char(7)
+
+  images Image[]
+
+  created_at            DateTime                  @default(now())
+  artist_image_resource ArtistImageResourceLink[]
+  album_image_resource  AlbumImageResourceLink[]
+  track_image_resource  TrackImageResourceLink[]
+}
+
 model Artist {
-  hash String @id @db.VarChar(40)
-  name String @db.Text
+  hash    String   @id @db.Char(40)
+  name    String   @db.Text
+  genres  String[] @db.Text
+  tags    String[] @db.Text
+  similar String[] @db.Text
 
-  spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
+  spotify_id String? @db.Char(22)
+  deezer_id  Int?
 
-  spotify_images        String? @db.Text
-  spotify_images_colors String? @db.Text
-  deezer_image          String? @db.Text
-  deezer_images_colors  String? @db.Text
+  created_at            DateTime                  @default(now())
+  updated_at            DateTime?
+  preferred_resource    String?                   @db.Char(40)
+  artist_image_resource ArtistImageResourceLink[]
+}
 
-  genres    String? @db.Text
-  cached_at String  @db.VarChar(16)
+model ArtistImageResourceLink {
+  artist              Artist        @relation(fields: [artist_hash], references: [hash])
+  artist_hash         String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([artist_hash, image_resource_hash])
 }
 
 model Album {
-  hash    String @id @db.VarChar(40)
-  name    String @db.Text
-  artists String @db.Text
+  hash    String   @id @db.Char(40)
+  name    String   @db.Text
+  artists String[] @db.Text
+  tags    String[] @db.Text
 
-  spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
+  spotify_id String? @db.Char(22)
+  deezer_id  Int?
 
-  spotify_covers        String? @db.Text
-  spotify_covers_colors String? @db.Text
-  deezer_cover          String? @db.Text
-  deezer_covers_colors  String? @db.Text
+  release_date         String?                  @db.VarChar(16)
+  created_at           DateTime                 @default(now())
+  updated_at           DateTime?
+  preferred_resource   String?                  @db.Char(40)
+  album_image_resource AlbumImageResourceLink[]
+}
 
-  release_date String? @db.VarChar(16)
-  cached_at    String  @db.VarChar(16)
+model AlbumImageResourceLink {
+  album               Album         @relation(fields: [album_hash], references: [hash])
+  album_hash          String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([album_hash, image_resource_hash])
 }
 
 model Track {
-  hash String @id @db.VarChar(40)
+  hash String @id @db.Char(40)
 
-  name    String @db.Text
-  artists String @db.Text
-  album   String @db.Text
+  name    String   @db.Text
+  artists String[] @db.Text
+  album   String?  @db.Text
 
-  spotify_id String? @db.VarChar(22)
-  deezer_id  String? @db.VarChar(32)
-  genius_id  String? @db.VarChar(32)
+  spotify_id String? @db.Char(22)
+  deezer_id  Int?
+  genius_id  Int?
 
-  spotify_covers        String? @db.Text
-  spotify_covers_colors String? @db.Text
-  deezer_cover          String? @db.Text
-  deezer_covers_colors  String? @db.Text
+  tags     String[] @db.Text
+  duration Int?     @db.Integer // ms
+  preview  String?  @db.VarChar(255)
+  explicit Boolean?
 
-  duration Int?    @db.Integer
-  preview  String? @db.VarChar(255)
+  created_at DateTime  @default(now())
+  updated_at DateTime?
 
-  cached_at String @db.VarChar(16)
+  preferred_resource   String?                  @db.Char(40)
+
+  track_image_resource TrackImageResourceLink[]
+}
+
+model TrackImageResourceLink {
+  track               Track         @relation(fields: [track_hash], references: [hash])
+  track_hash          String        @db.Char(40)
+  image_resource      ImageResource @relation(fields: [image_resource_hash], references: [hash])
+  image_resource_hash String        @db.Char(40)
+
+  @@id([track_hash, image_resource_hash])
 }
 
 model TrackFeatures {
-  spotify_id String @id @db.VarChar(22)
+  spotify_id String @id @db.Char(22)
 
-  danceability     Float @db.DoublePrecision
-  energy           Float @db.DoublePrecision
-  loudness         Float @db.DoublePrecision
-  speechiness      Float @db.DoublePrecision
-  acousticness     Float @db.DoublePrecision
-  instrumentalness Float @db.DoublePrecision
-  liveness         Float @db.DoublePrecision
-  valence          Float @db.DoublePrecision
-  tempo            Float @db.DoublePrecision
+  danceability     Float   @db.DoublePrecision
+  energy           Float   @db.DoublePrecision
+  loudness         Float   @db.DoublePrecision
+  speechiness      Float   @db.DoublePrecision
+  acousticness     Float   @db.DoublePrecision
+  instrumentalness Float   @db.DoublePrecision
+  liveness         Float   @db.DoublePrecision
+  valence          Float   @db.DoublePrecision
+  tempo            Float   @db.DoublePrecision
 }

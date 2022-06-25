@@ -1,5 +1,8 @@
-export function chunkArray (arr: any[], size: number): any[][] {
-  return arr.reduce((resultArray, item, index) => {
+import { Image, ImageResource, ImageSize } from '@prisma/client'
+import { DataSource } from '../typings/common'
+
+export function chunkArray<T> (arr: T[], size: number): T[][] {
+  return arr.reduce((resultArray: T[][], item, index) => {
     const chunkIndex = Math.floor(index / size)
 
     if (!resultArray[chunkIndex]) resultArray[chunkIndex] = []
@@ -20,6 +23,11 @@ export function stringifyObject<T extends Record<string, any>> (obj: T): Record<
   const clone: Record<string, string> = {}
 
   for (const key of Object.keys(obj)) {
+    if (obj[key] === null) {
+      clone[key] = 'null'
+    } else {
+      clone[key] = typeof obj[key] === 'object' ? JSON.stringify(obj[key]) : obj[key].toString()
+    }
     clone[key] = obj[key] !== null ? obj[key].toString() : 'null'
   }
 
@@ -54,5 +62,77 @@ export function valueOrNull<T> (value: T | 'null'): T | null {
   return value === 'null' || value === undefined || value === null ? null : value
 }
 
+export function fromListOrArray (value: string | string[]) {
+  if (!value) return []
+  return Array.isArray(value) ? value : value.split(',')
+}
+
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export function doNothing () { }
+
+export function parseQueryList (qs: unknown) {
+  if (Array.isArray(qs)) {
+    return qs as string[]
+  } else if (typeof qs === 'string') {
+    return qs.split(',')
+  } else {
+    return []
+  }
+}
+
+export function parseSourcesList (qs: unknown) {
+  const list = parseQueryList(qs)
+
+  const availableSources = Object.keys(DataSource).map(s => s.toLowerCase())
+  return list
+    .filter(s => availableSources.includes(s.toLowerCase()))
+    .map(s => s.toLowerCase()) as DataSource[]
+}
+/**
+ *  | EXTRA_SMALL |  SMALL  |  MEDIUM  |   LARGE  | EXTRA_LARGE |
+ *  0------------100-------200--------600--------950------------
+ */
+export function imageSizeToSizeEnum (width: number, height: number): ImageSize {
+  const significantSize = width > height ? height : width
+
+  if (significantSize <= 100) return ImageSize.EXTRA_SMALL
+  else if (significantSize <= 200) return ImageSize.SMALL
+  else if (significantSize <= 600) return ImageSize.MEDIUM
+  else if (significantSize <= 950) return ImageSize.LARGE
+  else return ImageSize.EXTRA_LARGE
+}
+
+export const isLastFMError = (
+  error: unknown
+): error is { code: number, message: string } => {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    'message' in error
+  )
+}
+
+export const formatResource = (resource: (ImageResource & {
+  images: Image[]
+})) => ({
+  hash: resource.hash,
+  explicit: resource.explicit,
+  source: resource.source,
+  color_palette: {
+    vibrant: resource.palette_vibrant,
+    dark_vibrant: resource.palette_dark_vibrant,
+    light_vibrant: resource.palette_light_vibrant,
+    muted: resource.palette_muted,
+    dark_muted: resource.palette_dark_muted,
+    light_muted: resource.palette_light_muted
+  },
+  active: resource.active,
+  // convert to date because of redis data is a JSON
+  created_at: new Date(resource.created_at).getTime().toString(),
+  images: resource.images.map(image => ({
+    hash: image.hash,
+    url: image.url,
+    size: image.size
+  }))
+})

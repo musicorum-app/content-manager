@@ -1,14 +1,18 @@
-import { chunkArray, flatArray } from '../utils/utils'
+import { chunkArray, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
-import { ArtistResponse, Context, Nullable } from '../typings/common'
+import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
 import { Signale } from 'signale'
-import { findArtist } from '../finders/artist'
+import { findArtist, formatDisplayArtist } from '../finders/artist'
 import { QueueSource } from '../queue/sources'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
 const route = (ctx: Context) => {
   ctx.router.use('/find/artists', async (req, res) => {
+    const end = ctx.monitoring.metrics.requestHistogram.labels({
+      endpoint: '/find/artists'
+    }).startTimer()
     try {
       const { artists } = req.body
       if (!artists || !Array.isArray(artists)) {
@@ -17,8 +21,25 @@ const route = (ctx: Context) => {
           .json(messages.MISSING_PARAMS)
       }
       logger.time('Find artists with length of ' + artists.length)
+      const retrievePalette = req.query.palette === 'true'
 
-      const promises = artists.map(a => findArtist(ctx, a))
+      const sources = parseSourcesList(req.query.sources)
+      if (sources.length === 0) {
+        sources[0] = DataSource.Spotify
+      }
+
+      const promises = artists.map(
+        (a) => findArtist(ctx, a, sources)
+          .then(async (artist) => {
+            if (!artist) return null
+            if (retrievePalette) {
+              if (await resolveResourcePalette(ctx, artist.artist_image_resource)) {
+                await ctx.redis.setArtist(artist.hash, artist)
+              }
+            }
+            return formatDisplayArtist(artist)
+          })
+      )
 
       let result = await Promise.all(promises)
 
@@ -30,12 +51,15 @@ const route = (ctx: Context) => {
       logger.timeEnd('Find artists with length of ' + artists.length)
 
       res.json(result)
+
+      ctx.monitoring.metrics.findersCounter.labels({ type: 'artists' }).inc()
     } catch (e) {
       logger.error(e)
       res
         .status(500)
         .json(messages.INTERNAL_ERROR)
     }
+    end()
   })
 }
 
@@ -58,8 +82,6 @@ const getPopularityForArtists = async ({
       }
     }
   }))
-
-  logger.debug(pops)
 
   logger.timeEnd('Get popularity for artists')
 

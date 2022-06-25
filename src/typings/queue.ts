@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type TaskRunnable = () => Promise<any>
+export type TaskRunnable<R = any> = () => Promise<R>
 
-interface Task {
-  runnable: TaskRunnable,
-  resolve: (value: any) => void,
-  reject: (error: any) => void,
+export interface Task<R = any> {
+  runnable: TaskRunnable<R>,
+  resolve: (value: R) => void,
+  reject: (error: Error) => void,
 }

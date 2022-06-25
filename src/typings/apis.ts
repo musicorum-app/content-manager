@@ -7,10 +7,15 @@ interface DeezerTrack {
   duration: number
   link: string
   preview: string
+  explicit_lyrics: boolean
   md5_image: string
   artist: {
     id: number
     name: string
+  }
+  album: {
+    title: string
+    cover_big: string
   }
 }
 
@@ -51,6 +56,7 @@ interface SpotifyTrack {
   popularity: number
   preview_url?: string,
   duration_ms: number,
+  explicit?: boolean,
   album: SpotifyAlbum
   artists: {
     id: string
