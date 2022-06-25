@@ -10,6 +10,9 @@ const logger = new Signale({ scope: 'ArtistFinder' })
 
 const route = (ctx: Context) => {
   ctx.router.use('/find/artists', async (req, res) => {
+    const end = ctx.monitoring.metrics.requestHistogram.labels({
+      endpoint: '/find/artists'
+    }).startTimer()
     try {
       const { artists } = req.body
       if (!artists || !Array.isArray(artists)) {
@@ -50,13 +53,13 @@ const route = (ctx: Context) => {
       res.json(result)
 
       ctx.monitoring.metrics.findersCounter.labels({ type: 'artists' }).inc()
-      ctx.monitoring.metrics.resourcesCounter.labels({ type: 'artists' }).inc(artists.length)
     } catch (e) {
       logger.error(e)
       res
         .status(500)
         .json(messages.INTERNAL_ERROR)
     }
+    end()
   })
 }
 

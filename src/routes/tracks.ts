@@ -15,6 +15,9 @@ const route = (ctx: Context) => {
   } = ctx
 
   router.post('/find/tracks', async (req, res) => {
+    const end = ctx.monitoring.metrics.requestHistogram.labels({
+      endpoint: '/find/tracks'
+    }).startTimer()
     try {
       const { tracks } = req.body
 
@@ -56,11 +59,11 @@ const route = (ctx: Context) => {
 
       res.json(result)
       ctx.monitoring.metrics.findersCounter.labels({ type: 'tracks' }).inc()
-      ctx.monitoring.metrics.resourcesCounter.labels({ type: 'tracks' }).inc(tracks.length)
     } catch (e) {
       logger.error(e)
       res.status(500).json(messages.INTERNAL_ERROR)
     }
+    end()
   })
   /* router.get('/tracks', async (req, res) => {
       const tracksQuery = req.query.tracks

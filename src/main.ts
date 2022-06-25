@@ -31,7 +31,7 @@ export default class Main {
     }
 
     this.app = express()
-    this.queueController = new QueueController()
+    this.queueController = new QueueController(monitoring)
     this.redis = new RedisClient()
     this.spotifyApi = new SpotifyAPI()
     this.prisma = new PrismaClient()

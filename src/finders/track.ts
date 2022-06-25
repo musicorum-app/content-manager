@@ -29,17 +29,21 @@ async function findTrack (
     prisma
   } = ctx
 
+  const end = ctx.monitoring.startResourcesTimer('tracks')
+
   try {
     const hashedTrack = hashTrack(name, artist, album || '')
 
     const exists = await redis.getTrack(hashedTrack)
     if (exists && exists.hash && checkTrackSources(exists, sources)) {
+      end(1)
       return exists
     } else {
       const found = await getTrackFromPrisma(prisma, hashedTrack)
 
       if (found && checkTrackSources(found, sources)) {
         redis.setTrack(hashedTrack, found)
+        end(2)
         return found
       } else {
         const item: Track = {
@@ -86,7 +90,10 @@ async function findTrack (
           await findTrackFromDeezer(ctx, item, resources, images)
         }
 
-        if (!foundOne) return found
+        if (!foundOne) {
+          end(2)
+          return found
+        }
 
         let toCreate: Prisma.TrackCreateInput = item
 
@@ -136,10 +143,12 @@ async function findTrack (
 
         redis.setTrack(hashedTrack, entry)
 
+        end(3)
         return entry
       }
     }
   } catch (e) {
+    end(0)
     if (e instanceof NotFoundError) {
       return null
     }
@@ -186,11 +195,13 @@ async function findTrackFromSpotify (
   }
 
   const albumAdc = item.album ? ` album:${item.album}` : ''
+  const end = ctx.monitoring.startExternalRequestTimer(DataSource.Spotify, 'searchTrack')
   const res = await ctx.queueController.queueTask<SpotifySearchResponse>(
     QueueSource.Spotify,
     () => ctx.spotifyApi
       .searchTrack(`"${item.name}" artist:${item.artists[0]}${albumAdc}`)
   )
+  end()
 
   if (res.tracks?.items.length === 0) {
     ctx.redis.setAsNotFound(item.hash, DataSource.Spotify)
@@ -245,6 +256,7 @@ async function findTrackFromLastFM (
   console.log(item.tags.length, await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM))
 
   try {
+    const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'track.getInfo')
     const res = await ctx.queueController.queueTask(
       QueueSource.LastFM,
       () => ctx.lastfm.track.getInfo({
@@ -253,6 +265,7 @@ async function findTrackFromLastFM (
         autocorrect: true
       })
     )
+    end()
 
     item.name = res.name
     item.tags = [...item.tags, ...res.toptags.map(t => t.name)]
@@ -297,12 +310,14 @@ async function findTrackFromDeezer (
     return
   }
 
+  const end = ctx.monitoring.startExternalRequestTimer(DataSource.Deezer, 'searchTrack')
   const {
     data
   } = await ctx.queueController.queueTask(
     QueueSource.Deezer,
     () => DeezerAPI.searchTrack(item.name, item.artists[0], item.album ?? undefined)
   )
+  end()
 
   if (data.length === 0) {
     ctx.redis.setAsNotFound(item.hash, DataSource.Deezer)

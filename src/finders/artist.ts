@@ -30,16 +30,20 @@ export async function findArtist (
     redis,
     prisma
   } = ctx
+  const end = ctx.monitoring.startResourcesTimer('artists')
+
   try {
     const hashedArtist = hashArtist(name)
 
     const exists = await redis.getArtist(hashedArtist)
     if (exists && exists.hash && checkArtistSources(exists, sources)) {
+      end(1)
       return exists
     } else {
       const found = await getArtistFromPrisma(prisma, hashedArtist)
       if (found && checkArtistSources(found, sources)) {
         redis.setArtist(hashedArtist, found)
+        end(2)
         return found
       } else {
         const item: Artist = {
@@ -76,7 +80,10 @@ export async function findArtist (
           })
         )
 
-        if (!foundOne) return found
+        if (!foundOne) {
+          end(2)
+          return found
+        }
 
         let toCreate: Prisma.ArtistCreateInput = item
 
@@ -126,10 +133,12 @@ export async function findArtist (
 
         redis.setArtist(hashedArtist, entry)
 
+        end(3)
         return entry
       }
     }
   } catch (e) {
+    end(0)
     if (e instanceof NotFoundError) {
       return null
     }
@@ -169,10 +178,12 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
     logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
     return
   }
+  const end = ctx.monitoring.startExternalRequestTimer(DataSource.Spotify, 'searchArtist')
   const res = await ctx.queueController.queueTask(
     QueueSource.Spotify,
     () => ctx.spotifyApi.searchArtist(item.name)
   )
+  end()
 
   if (res.artists?.items.length === 0) {
     ctx.redis.setAsNotFound(item.hash, DataSource.Spotify)
@@ -216,10 +227,12 @@ async function findArtistFromLastFM (ctx: Context, item: Artist) {
   }
 
   try {
+    const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'artist.getInfo')
     const res = await ctx.queueController.queueTask(
       QueueSource.LastFM,
       () => ctx.lastfm.artist.getInfo({ artist: item.name })
     )
+    end()
 
     item.tags.push(...res.tags.map(t => t.name))
     item.similar.push(...res.similarArtists.map(a => a.name))

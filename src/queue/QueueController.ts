@@ -3,19 +3,16 @@ import { nanoid } from 'nanoid'
 import { performance } from 'perf_hooks'
 import { Signale } from 'signale'
 import config from '../../config.json'
+import { Metrics } from '../modules/monitoring'
 import { Task, TaskRunnable } from '../typings/queue'
 import { QueueSource } from './sources'
 
 export default class QueueController {
-  private logger: Signale
-  private queue: Map<QueueSource, Map<string, Task>>
-  private runningQueue: Map<QueueSource, Map<string, Task>>
+  private logger: Signale = new Signale({ scope: 'Queue' })
+  private queue: Map<QueueSource, Map<string, Task>> = new Map()
+  private runningQueue: Map<QueueSource, Map<string, Task>> = new Map()
 
-  constructor () {
-    this.logger = new Signale({ scope: 'Queue' })
-    this.queue = new Map()
-    this.runningQueue = new Map()
-  }
+  constructor (private monitoring: Metrics) { }
 
   public init () {
     this.logger.info('Starting service')
@@ -72,8 +69,11 @@ export default class QueueController {
         reject(e)
       })
       .finally(() => {
-        this.logger.await(`Task ${blue('%s')} [${magentaBright('%s')}] took ${magentaBright('%dms')}`, id, source, (performance.now() - start).toFixed(2))
+        const duration = (performance.now() - start)
+        this.logger.await(`Task ${blue('%s')} [${magentaBright('%s')}] took ${magentaBright('%dms')}`, id, source, duration.toFixed(2))
         this.runningQueue.get(source)?.delete(id)
+        this.monitoring.metrics.tasksCounter.labels({ source }).inc()
+        this.monitoring.metrics.tasksHistogram.labels({ source }).observe(duration)
       })
   }
 

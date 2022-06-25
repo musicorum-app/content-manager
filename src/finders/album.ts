@@ -24,19 +24,24 @@ export async function findAlbum (
 ): Promise<AlbumWithImageResources | null> {
   const {
     redis,
-    prisma
+    prisma,
+    monitoring
   } = ctx
+  const end = monitoring.startResourcesTimer('albums')
+
   try {
     const hashedAlbum = hashAlbum(name, artist)
 
     const exists = await redis.getAlbum(hashedAlbum)
     if (exists && exists.hash && checkAlbumSources(exists, sources)) {
+      end(1)
       return exists
     } else {
       const found = await getAlbumFromPrisma(prisma, hashedAlbum)
 
       if (found && checkAlbumSources(found, sources)) {
         redis.setAlbum(hashedAlbum, found)
+        end(2)
         return found
       } else {
         const item: Album = {
@@ -72,7 +77,10 @@ export async function findAlbum (
           })
         )
 
-        if (!foundOne) return found
+        if (!foundOne) {
+          end(2)
+          return found
+        }
 
         let toCreate: Prisma.AlbumCreateInput = item
 
@@ -122,10 +130,12 @@ export async function findAlbum (
 
         redis.setAlbum(hashedAlbum, entry)
 
+        end(3)
         return entry
       }
     }
   } catch (e) {
+    end(0)
     if (e instanceof NotFoundError) {
       return null
     }
@@ -171,10 +181,12 @@ async function findAlbumFromSpotify (
     return
   }
 
+  const end = ctx.monitoring.startExternalRequestTimer(DataSource.Spotify, 'searchAlbum')
   const res = await ctx.queueController.queueTask(
     QueueSource.Spotify,
     () => ctx.spotifyApi.searchAlbum(item.name, item.artists[0])
   )
+  end()
 
   if (res.albums?.items.length === 0) {
     ctx.redis.setAsNotFound(item.hash, DataSource.Spotify)
@@ -222,6 +234,7 @@ async function findAlbumFromLastFM (
   }
 
   try {
+    const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'album.getInfo')
     const res = await ctx.queueController.queueTask(
       QueueSource.LastFM,
       () => ctx.lastfm.album.getInfo({
@@ -229,6 +242,7 @@ async function findAlbumFromLastFM (
         artist: item.artists[0]
       })
     )
+    end()
 
     item.name = res.name
     item.tags = [...item.tags, ...res.tags.map(t => t.name)]
