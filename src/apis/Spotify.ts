@@ -29,7 +29,7 @@ class SpotifyAPI {
       if (error.error.error.status === 429) {
         const response = error.response as IncomingMessage
         logger.warn('Spotify API rate limit exceeded. Retrying after %s seconds', response.headers['retry-after'])
-        await new Promise(resolve => setTimeout(resolve, parseInt(response.headers['retry-after'] ?? '1000')))
+        await new Promise(resolve => setTimeout(resolve, parseInt(response.headers['retry-after'] ?? '1') * 1000))
         return this.request(fn)
       }
       throw err
