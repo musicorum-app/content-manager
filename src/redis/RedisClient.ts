@@ -78,9 +78,9 @@ export default class RedisClient {
   }
 
   public async getArtist (hash: string): Promise<ArtistWithImageResources | null> {
-    const album = await this.client?.get(hash)
+    const artist = await this.client?.get(hash)
     await this.checkIfIsNull(hash)
-    return album && typeof album === 'string' && album !== '' ? JSON.parse(album) as unknown as ArtistWithImageResources : null
+    return artist && typeof artist === 'string' && artist !== '' ? JSON.parse(artist) as unknown as ArtistWithImageResources : null
   }
 
   public async setPopularity (spotifyId: string, value: number): Promise<void> {
