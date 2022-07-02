@@ -57,12 +57,15 @@ const metrics = {
 }
 
 function startResourcesTimer (type: 'albums' | 'tracks' | 'artists') {
-  const endTimer = metrics.resourcesHistogram.startTimer()
+  const start = performance.now()
 
   return (level: number) => {
-    const labels = { type, level }
-    endTimer(labels)
-    metrics.resourcesCounter.labels(labels).inc()
+    const duration = performance.now() - start
+    setImmediate(() => {
+      const labels = { type, level }
+      metrics.resourcesHistogram.labels(labels).observe(duration)
+      metrics.resourcesCounter.labels(labels).inc()
+    })
   }
 }
 
