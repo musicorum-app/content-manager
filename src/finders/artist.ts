@@ -33,11 +33,14 @@ export async function findArtist (
   const end = ctx.monitoring.startResourcesTimer('artists')
 
   try {
+    const redisStart = performance.now()
     const hashedArtist = hashArtist(name)
+    logger.debug('Searching for artist ' + name)
 
     const exists = await redis.getArtist(hashedArtist)
     if (exists && exists.hash && checkArtistSources(exists, sources)) {
       end(1)
+      logger.debug('Found artist ' + name + ' in redis with %sms', performance.now() - redisStart)
       return exists
     } else {
       const found = await getArtistFromPrisma(prisma, hashedArtist)
