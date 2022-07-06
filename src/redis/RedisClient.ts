@@ -19,7 +19,7 @@ export default class RedisClient {
   public async init (): Promise<void> {
     this.logger.info('Starting service')
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.client = new Tedis({
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -31,9 +31,14 @@ export default class RedisClient {
         this.logger.success('Connected to redis')
       })
       this.client.on('error', e => {
-        reject(e)
         this.logger.error('Error connecting to redis', e)
         process.exit(1)
+      })
+      this.client.on('timeout', () => {
+        this.logger.error('Timeout connecting to redis')
+      })
+      this.client.on('close', () => {
+        this.logger.error('Connection to redis closed')
       })
     })
   }
