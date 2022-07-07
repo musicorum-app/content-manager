@@ -36,9 +36,9 @@ export async function findArtist (
     const redisStart = performance.now()
     const hashedArtist = hashArtist(name)
 
-    logger.debug('Searching for artist ' + name)
+    // logger.debug('Searching for artist ' + name)
     const exists = await redis.getArtist(hashedArtist)
-    logger.debug('Found artist ' + name + ' in redis with %sms', performance.now() - redisStart)
+    // logger.debug('Found artist ' + name + ' in redis with %sms', performance.now() - redisStart)
     if (exists && exists.hash && checkArtistSources(exists, sources)) {
       end(1)
       return exists
@@ -141,11 +141,11 @@ export async function findArtist (
       }
     }
   } catch (e) {
-    logger.error(e)
     end(0)
     if (e instanceof NotFoundError) {
       return null
     }
+    logger.error(e)
     return null
   }
 }

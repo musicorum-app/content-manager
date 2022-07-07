@@ -102,7 +102,10 @@ export default class RedisClient {
   }
 
   public async checkIfIsNull (hash: string, source?: DataSource): Promise<void> {
-    if (await this.client?.exists(this.createNotFoundKey(hash, source || '_'))) throw new NotFoundError()
+    const s = performance.now()
+    const exists = await this.client?.exists(this.createNotFoundKey(hash, source || '_'))
+    this.logger.debug('Exists for %s run for %dms', hash, performance.now() - s)
+    if (exists) throw new NotFoundError()
   }
 
   public checkIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
