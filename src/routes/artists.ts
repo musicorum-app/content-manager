@@ -2,9 +2,8 @@ import { chunkArray, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
 import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
 import { Signale } from 'signale'
-import { findArtist, formatDisplayArtist } from '../finders/artist'
+import { findManyArtists } from '../finders/artist'
 import { QueueSource } from '../queue/sources'
-import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -27,21 +26,24 @@ const route = (ctx: Context) => {
       if (sources.length === 0) {
         sources[0] = DataSource.Spotify
       }
+      logger.time('S')
+      let result = await findManyArtists(ctx, artists, sources, retrievePalette)
+      logger.timeEnd('S')
 
-      const promises = artists.map(
-        (a) => findArtist(ctx, a, sources)
-          .then(async (artist) => {
-            if (!artist) return null
-            if (retrievePalette) {
-              if (await resolveResourcePalette(ctx, artist.artist_image_resource)) {
-                await ctx.redis.setArtist(artist.hash, artist)
-              }
-            }
-            return formatDisplayArtist(artist)
-          })
-      )
+      // const promises = artists.map(
+      //   (a) => findArtist(ctx, a, sources)
+      //     .then(async (artist) => {
+      //       if (!artist) return null
+      //       if (retrievePalette) {
+      //         if (await resolveResourcePalette(ctx, artist.artist_image_resource)) {
+      //           await ctx.redis.setArtist(artist.hash, artist)
+      //         }
+      //       }
+      //       return formatDisplayArtist(artist)
+      //     })
+      // )
 
-      let result = await Promise.all(promises)
+      // let result = await Promise.all(promises)
 
       const showPopularity = req.query.popularity === 'true'
 

@@ -64,6 +64,10 @@ export default class RedisClient {
     await this.client?.expire(key + ':features', config.expiration.tracks)
   }
 
+  public async getManyObjects (keys: string[]) {
+    return this.client?.mget('_', ...keys).then(list => list.slice(1))
+  }
+
   public async getTrack (hash: string): Promise<TrackWithImageResources | null> {
     const track = await this.client?.get(hash)
     await this.checkIfIsNull(hash)
@@ -102,10 +106,10 @@ export default class RedisClient {
   }
 
   public async checkIfIsNull (hash: string, source?: DataSource): Promise<void> {
-    const s = performance.now()
-    const exists = await this.client?.exists(this.createNotFoundKey(hash, source || '_'))
-    this.logger.debug('Exists for %s run for %dms', hash, performance.now() - s)
-    if (exists) throw new NotFoundError()
+    // const s = performance.now()
+    const exists = await this.client?.get(this.createNotFoundKey(hash, source || '_'))
+    // this.logger.debug('Exists for %s run for %dms', hash, performance.now() - s)
+    if (exists === 'true') throw new NotFoundError()
   }
 
   public checkIfIsNotFound (hash: string, source: DataSource): Promise<boolean> {
@@ -117,12 +121,12 @@ export default class RedisClient {
   }
 
   public async setAsNotFound (hash: string, source: DataSource) {
-    await this.client?.set(this.createNotFoundKey(hash, source), '1')
+    await this.client?.set(this.createNotFoundKey(hash, source), 'true')
     await this.client?.expire(hash, config.expiration.notFound)
   }
 
   public createNotFoundKey (key: string, source: string): string {
-    return `${source}:${key}::::nf`
+    return `${source}:${key}::nf`
   }
 
   public convertNulls (obj: Record<string, unknown>): Record<string, Nullable<unknown>> {

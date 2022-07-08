@@ -1,11 +1,12 @@
 import { hash, hashArtist } from '../utils/hashing'
-import { ArtistResponse, Context, DataSource } from '../typings/common'
+import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
 import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
 import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
 import { yellow } from 'colorette'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -33,7 +34,6 @@ export async function findArtist (
   const end = ctx.monitoring.startResourcesTimer('artists')
 
   try {
-    const redisStart = performance.now()
     const hashedArtist = hashArtist(name)
 
     // logger.debug('Searching for artist ' + name)
@@ -274,4 +274,45 @@ export function formatDisplayArtist ({
     created_at: new Date(created_at).getTime().toString(),
     updated_at: updated_at ? new Date(updated_at).getTime().toString() : null
   }
+}
+
+export async function findManyArtists (
+  ctx: Context,
+  artists: string[],
+  sources: DataSource[],
+  retrievePalette: boolean
+) {
+  const hashes = artists.map(a => hashArtist(a))
+
+  const founds = await ctx.redis.getManyObjects(hashes)
+
+  if (!founds || founds.length === 0) throw new Error('Could not find artists on redis')
+
+  const promises = founds.map(async (artist, index) => {
+    let artistObject: Nullable<ArtistWithImageResources> = null
+    if (typeof artist === 'string') {
+      const object = JSON.parse(artist) as ArtistWithImageResources
+
+      artistObject = (checkArtistSources(object, sources))
+        ? object
+        : await findArtist(ctx, artists[index], sources)
+    } else {
+      artistObject = await findArtist(ctx, artists[index], sources)
+    }
+
+    if (!artistObject) return null
+    if (retrievePalette) {
+      if (await resolveResourcePalette(ctx, artistObject.artist_image_resource)) {
+        await ctx.redis.setArtist(artistObject.hash, artistObject)
+      }
+    }
+    return formatDisplayArtist(artistObject)
+  })
+
+  logger.time('Promises')
+  return Promise.all(promises)
+    .then(r => {
+      logger.timeEnd('Promises')
+      return r
+    })
 }
