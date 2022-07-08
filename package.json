@@ -1,6 +1,6 @@
 {
   "name": "content-manager",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "The musicorum content manager, desired to manage and save cache of data",
   "main": "dist/index.js",
   "scripts": {

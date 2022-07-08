@@ -7,6 +7,7 @@ import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
 import { red, yellow } from 'colorette'
 import { resolveResourcePalette } from '../modules/palette'
+import monitoring from '../modules/monitoring'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -296,12 +297,17 @@ export async function findManyArtists (
 
   if (!founds || founds.length === 0) throw new Error('Could not find artists on redis')
 
+  let onRedis = 0
+
   const promises = founds.map(async (artist, index) => {
     let artistObject: Nullable<ArtistWithImageResources> = null
     if (typeof artist === 'string') {
       const object = JSON.parse(artist) as ArtistWithImageResources
+      const checkedArtistSources = checkArtistSources(object, sources)
 
-      artistObject = (checkArtistSources(object, sources))
+      if (checkedArtistSources) onRedis++
+
+      artistObject = checkedArtistSources
         ? object
         : await findArtist(ctx, artists[index], sources)
     } else {
@@ -321,6 +327,9 @@ export async function findManyArtists (
   return Promise.all(promises)
     .then(r => {
       logger.timeEnd('Promises')
+      ctx.monitoring.metrics.resourcesCounter
+        .labels({ type: 'artist', level: 1 })
+        .inc(onRedis)
       return r
     })
 }
