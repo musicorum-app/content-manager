@@ -5,7 +5,7 @@ import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } f
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
-import { yellow } from 'colorette'
+import { red, yellow } from 'colorette'
 import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
@@ -225,9 +225,11 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
 
 async function findArtistFromLastFM (ctx: Context, item: Artist) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
-    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    logger.warn(`Resource was not found previously (${red('LFM')}) [${yellow(item.name)}]`)
     return
   }
+
+  console.log(await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM))
 
   try {
     const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'artist.getInfo')
