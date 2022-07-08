@@ -241,6 +241,12 @@ async function findArtistFromLastFM (ctx: Context, item: Artist) {
 
     item.tags.push(...res.tags.map(t => t.name))
     item.similar.push(...res.similarArtists.map(a => a.name))
+
+    if (!(item.tags.length || item.similar.length)) {
+      // If there's no tags or similar artists, set it as not found so
+      // it wont be searched again when bypassed py the checkArtistSources
+      ctx.redis.setAsNotFound(item.hash, DataSource.LastFM)
+    }
   } catch (err) {
     if (isLastFMError(err) && err.code === 6) {
       ctx.redis.setAsNotFound(item.hash, DataSource.LastFM)
