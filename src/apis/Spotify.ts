@@ -6,8 +6,11 @@ const API_URL = 'https://api.spotify.com/v1'
 
 const logger = new Signale({ scope: 'SpotifyAPI' })
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 class SpotifyAPI {
   public client: SpotifyClient
+  private retryAfter = 0
 
   constructor () {
     if (!process.env.SPOTIFY_ID || !process.env.SPOTIFY_SECRET) {
@@ -21,6 +24,10 @@ class SpotifyAPI {
 
   private async request<T> (fn: () => Promise<T>): Promise<T> {
     try {
+      if (this.retryAfter > 0) {
+        logger.warn('Spotify API rate limit exceeded. Retrying after %s seconds', this.retryAfter)
+        await wait(this.retryAfter)
+      }
       const result = await fn()
       return result
     } catch (err) {
@@ -28,8 +35,9 @@ class SpotifyAPI {
       const error = err as any
       if (error.error.error.status === 429) {
         const response = error.response as IncomingMessage
-        logger.warn('Spotify API rate limit exceeded. Retrying after %s seconds', response.headers['retry-after'])
-        await new Promise(resolve => setTimeout(resolve, parseInt(response.headers['retry-after'] ?? '1') * 1000))
+        logger.warn('Spotify API rate limit hit. Retry after %s seconds', response.headers['retry-after'])
+        this.retryAfter = parseInt(response.headers['retry-after'] ?? '1') * 1000
+        await new Promise(resolve => setTimeout(resolve, this.retryAfter))
         return this.request(fn)
       }
       throw err
