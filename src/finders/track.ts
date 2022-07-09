@@ -1,5 +1,5 @@
 import DeezerAPI from '../apis/Deezer'
-import { Context, DataSource, TrackRequestItem, TrackResponse } from '../typings/common'
+import { Context, DataSource, EntityType, Nullable, TrackRequestItem, TrackResponse } from '../typings/common'
 import { NotFoundError } from '../redis/RedisClient'
 import { Signale } from 'signale'
 import { hash, hashTrack } from '../utils/hashing'
@@ -7,6 +7,7 @@ import { Image, ImageResource, ImageResourceSource, ImageSize, Prisma, PrismaCli
 import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 import { QueueSource } from '../queue/sources'
 import { yellow } from 'colorette'
+import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'TrackFinder' })
 
@@ -18,7 +19,7 @@ export type TrackWithImageResources = Track & {
   })[]
 }
 
-async function findTrack (
+export async function findTrack (
   ctx: Context,
   { name, artist, album }: TrackRequestItem,
   preview: boolean,
@@ -35,13 +36,13 @@ async function findTrack (
     const hashedTrack = hashTrack(name, artist, album || '')
 
     const exists = await redis.getTrack(hashedTrack)
-    if (exists && exists.hash && checkTrackSources(exists, sources)) {
+    if (exists && exists.hash && checkTrackSources(exists, sources, preview)) {
       end(1)
       return exists
     } else {
       const found = await getTrackFromPrisma(prisma, hashedTrack)
 
-      if (found && checkTrackSources(found, sources)) {
+      if (found && checkTrackSources(found, sources, preview)) {
         redis.setTrack(hashedTrack, found)
         end(2)
         return found
@@ -87,7 +88,16 @@ async function findTrack (
         )
 
         if (preview && !item.preview) {
-          await findTrackFromDeezer(ctx, item, resources, images)
+          if (!item.spotify_id) {
+            await findTrackFromSpotify(ctx, item, resources, images)
+
+            if (!item.preview) {
+              await findTrackFromDeezer(ctx, item, resources, images)
+            }
+          } else {
+            await findTrackFromDeezer(ctx, item, resources, images)
+          }
+          if (item.preview) foundOne = true
         }
 
         if (!foundOne) {
@@ -176,10 +186,11 @@ function getTrackFromPrisma (prisma: PrismaClient, hash: string) {
   })
 }
 
-function checkTrackSources (track: TrackWithImageResources, sources: DataSource[]) {
+function checkTrackSources (track: TrackWithImageResources, sources: DataSource[], preview: boolean) {
   if (sources.includes(DataSource.Spotify) && !track.spotify_id) return false
   if (sources.includes(DataSource.LastFM) && !track.tags.length) return false
   if (sources.includes(DataSource.Deezer) && !track.deezer_id) return false
+  if (preview && !track.preview) return false
   return true
 }
 
@@ -386,4 +397,61 @@ export function formatDisplayTrack ({
   }
 }
 
-export default findTrack
+export async function findManyTracks (
+  ctx: Context,
+  tracks: TrackRequestItem[],
+  sources: DataSource[],
+  preview: boolean,
+  retrievePalette: boolean
+) {
+  const hashes = tracks.map(t => hashTrack(t.name, t.artist, t.album || ''))
+
+  const founded = await ctx.redis.getManyObjects(hashes, EntityType.Track)
+
+  if (!founded || founded.length === 0) throw new Error('Could not find tracks on redis')
+
+  let onRedis = 0
+
+  const promises = founded.map(async (track, index) => {
+    try {
+      let trackObject: Nullable<TrackWithImageResources> = null
+      if (typeof track === 'string') {
+        const object = JSON.parse(track) as TrackWithImageResources
+        const checkedTrackSources = checkTrackSources(object, sources, preview)
+
+        if (checkedTrackSources) onRedis++
+
+        trackObject = checkedTrackSources
+          ? object
+          : await findTrack(ctx, tracks[index], preview, sources)
+      } else {
+        await ctx.redis.checkIfIsNull(hashes[index], EntityType.Track)
+        trackObject = await findTrack(ctx, tracks[index], preview, sources)
+      }
+
+      if (!trackObject) return null
+      if (retrievePalette) {
+        if (await resolveResourcePalette(ctx, trackObject.track_image_resource)) {
+          await ctx.redis.setTrack(trackObject.hash, trackObject)
+        }
+      }
+      return formatDisplayTrack(trackObject)
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return null
+      }
+      logger.error(err)
+      return null
+    }
+  })
+
+  logger.time('Promises')
+  return Promise.all(promises)
+    .then(r => {
+      logger.timeEnd('Promises')
+      ctx.monitoring.metrics.resourcesCounter
+        .labels({ type: 'track', level: 1 })
+        .inc(onRedis)
+      return r
+    })
+}

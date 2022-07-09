@@ -1,9 +1,8 @@
 import messages from '../messages'
 import { Context, DataSource } from '../typings/common'
-import { findAlbum, formatDisplayAlbum } from '../finders/album'
+import { findManyAlbums } from '../finders/album'
 import { Signale } from 'signale'
 import { parseSourcesList } from '../utils/utils'
-import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'AlbumFinder' })
 
@@ -28,20 +27,27 @@ const route = (ctx: Context) => {
         sources[0] = DataSource.Spotify
       }
 
-      const promises = albums.map(
-        a => findAlbum(ctx, a, sources)
-          .then(async (album) => {
-            if (!album) return null
-            if (retrievePalette) {
-              if (await resolveResourcePalette(ctx, album.album_image_resource)) {
-                await ctx.redis.setAlbum(album.hash, album)
-              }
-            }
-            return formatDisplayAlbum(album)
-          })
+      const result = await findManyAlbums(
+        ctx,
+        albums,
+        sources,
+        retrievePalette
       )
 
-      const result = await Promise.all(promises)
+      // const promises = albums.map(
+      //   a => findAlbum(ctx, a, sources)
+      //     .then(async (album) => {
+      //       if (!album) return null
+      //       if (retrievePalette) {
+      //         if (await resolveResourcePalette(ctx, album.album_image_resource)) {
+      //           await ctx.redis.setAlbum(album.hash, album)
+      //         }
+      //       }
+      //       return formatDisplayAlbum(album)
+      //     })
+      // )
+
+      // const result = await Promise.all(promises)
 
       logger.timeEnd('Find albums with length of ' + albums.length)
 

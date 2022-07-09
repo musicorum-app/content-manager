@@ -1,11 +1,10 @@
 import { chunkArray, doNothing, flatArray, parseSourcesList } from '../utils/utils'
 import messages from '../messages'
-import findTrack, { formatDisplayTrack } from '../finders/track'
+import { findManyTracks } from '../finders/track'
 import { Context, DataSource, Nullable, TrackFeaturesResponse, TrackResponse } from '../typings/common'
 import { Signale } from 'signale'
 import { TrackFeatures } from '@prisma/client'
 import { QueueSource } from '../queue/sources'
-import { resolveResourcePalette } from '../modules/palette'
 
 const logger = new Signale({ scope: 'TrackFinder' })
 
@@ -36,20 +35,22 @@ const route = (ctx: Context) => {
       const retrievePalette = req.query.palette === 'true'
       const preview = req.query.preview === 'true'
 
-      const promises = tracks.map(
-        t => findTrack(ctx, t, preview, sources)
-          .then(async track => {
-            if (!track) return null
-            if (retrievePalette) {
-              if (await resolveResourcePalette(ctx, track.track_image_resource)) {
-                await ctx.redis.setTrack(track.hash, track)
-              }
-            }
-            return formatDisplayTrack(track)
-          })
-      )
+      // const promises = tracks.map(
+      //   t => findTrack(ctx, t, preview, sources)
+      //     .then(async track => {
+      //       if (!track) return null
+      //       if (retrievePalette) {
+      //         if (await resolveResourcePalette(ctx, track.track_image_resource)) {
+      //           await ctx.redis.setTrack(track.hash, track)
+      //         }
+      //       }
+      //       return formatDisplayTrack(track)
+      //     })
+      // )
 
-      let result = await Promise.all(promises)
+      // let result = await Promise.all(promises)
+
+      let result = await findManyTracks(ctx, tracks, sources, preview, retrievePalette)
 
       if (req.query.features === 'true') {
         result = await handleFeatures(ctx, result)

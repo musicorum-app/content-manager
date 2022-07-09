@@ -1,9 +1,10 @@
 import { Album, AlbumImageResourceLink, Image, ImageResource, ImageResourceSource, ImageSize, Prisma, PrismaClient } from '@prisma/client'
-import { yellow } from 'colorette'
+import { green, red, yellow } from 'colorette'
 import { Signale } from 'signale'
+import { resolveResourcePalette } from '../modules/palette'
 import { QueueSource } from '../queue/sources'
 import { NotFoundError } from '../redis/RedisClient'
-import { AlbumRequestItem, AlbumResponse, Context, DataSource } from '../typings/common'
+import { AlbumRequestItem, AlbumResponse, Context, DataSource, EntityType, Nullable } from '../typings/common'
 import { hash, hashAlbum } from '../utils/hashing'
 import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 
@@ -177,7 +178,7 @@ async function findAlbumFromSpotify (
   images: Prisma.ImageCreateManyInput[]
 ) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.Spotify)) {
-    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    logger.warn(`Resource was not found previously [${green('SPT')}] [${yellow(item.name)}]`)
     return
   }
 
@@ -229,7 +230,7 @@ async function findAlbumFromLastFM (
   images: Prisma.ImageCreateManyInput[]
 ) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
-    logger.warn(`Resource was not found previously [${yellow(item.name)}]`)
+    logger.warn(`Resource was not found previously [${red('LFM')}] [${yellow(item.name)}]`)
     return
   }
 
@@ -247,6 +248,12 @@ async function findAlbumFromLastFM (
     item.name = res.name
     item.tags = [...item.tags, ...res.tags.map(t => t.name)]
     item.artists[0] = res.artist
+
+    if (!item.tags.length) {
+      // If there's no tags or similar artists, set it as not found so
+      // it wont be searched again when bypassed py the checkArtistSources
+      ctx.redis.setAsNotFound(item.hash, DataSource.LastFM)
+    }
 
     if (res.image.length >= 4 && res.image[3].url) {
       const resourceHash = hash(res.image.map(i => i.url).join(''))
@@ -296,4 +303,62 @@ export function formatDisplayAlbum ({
     created_at: new Date(created_at).getTime().toString(),
     updated_at: updated_at ? new Date(updated_at).getTime().toString() : null
   }
+}
+
+export async function findManyAlbums (
+  ctx: Context,
+  albums: AlbumRequestItem[],
+  sources: DataSource[],
+  retrievePalette: boolean
+) {
+  const hashes = albums.map(a => hashAlbum(a.name, a.artist))
+
+  const founded = await ctx.redis.getManyObjects(hashes, EntityType.Album)
+
+  if (!founded || founded.length === 0) throw new Error('Could not find artists on redis')
+
+  let onRedis = 0
+
+  const promises = founded.map(async (album, index) => {
+    try {
+      let albumObject: Nullable<AlbumWithImageResources> = null
+      if (typeof album === 'string') {
+        const object = JSON.parse(album) as AlbumWithImageResources
+        const checkedAlbumSources = checkAlbumSources(object, sources)
+
+        if (checkedAlbumSources) onRedis++
+
+        albumObject = checkedAlbumSources
+          ? object
+          : await findAlbum(ctx, albums[index], sources)
+      } else {
+        await ctx.redis.checkIfIsNull(hashes[index], EntityType.Album)
+        albumObject = await findAlbum(ctx, albums[index], sources)
+      }
+
+      if (!albumObject) return null
+      if (retrievePalette) {
+        if (await resolveResourcePalette(ctx, albumObject.album_image_resource)) {
+          await ctx.redis.setAlbum(albumObject.hash, albumObject)
+        }
+      }
+      return formatDisplayAlbum(albumObject)
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return null
+      }
+      logger.error(err)
+      return null
+    }
+  })
+
+  logger.time('Promises')
+  return Promise.all(promises)
+    .then(r => {
+      logger.timeEnd('Promises')
+      ctx.monitoring.metrics.resourcesCounter
+        .labels({ type: 'album', level: 1 })
+        .inc(onRedis)
+      return r
+    })
 }

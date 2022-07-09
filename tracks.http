@@ -1,8 +1,20 @@
-POST http://localhost:8080/find/tracks?palette=true&sources=spotify,lastfm,deezer
+POST http://localhost:8080/find/tracks?plette=true&sources=lastfm&preview=true&features=true
 Content-Type: application/json
 
 {
     "tracks": [
+        {
+            "name": "Woke Up In Japan",
+            "artist": "5 Seconds of Summer"
+        },
+        {
+            "name": "Know You Now",
+            "artist": "Amy Winehouse"
+        },
+        {
+            "name": "Running Up That Hill",
+            "artist": "Kate Bush"
+        },
         {
             "name": "n95",
             "artist": "kendrick lamar"

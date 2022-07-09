@@ -1,5 +1,5 @@
 import { hash, hashArtist } from '../utils/hashing'
-import { ArtistResponse, Context, DataSource, Nullable } from '../typings/common'
+import { ArtistResponse, Context, DataSource, EntityType, Nullable } from '../typings/common'
 import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
 import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 import { Signale } from 'signale'
@@ -7,7 +7,6 @@ import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
 import { red, yellow } from 'colorette'
 import { resolveResourcePalette } from '../modules/palette'
-import monitoring from '../modules/monitoring'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -230,8 +229,6 @@ async function findArtistFromLastFM (ctx: Context, item: Artist) {
     return
   }
 
-  console.log(await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM))
-
   try {
     const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'artist.getInfo')
     const res = await ctx.queueController.queueTask(
@@ -293,34 +290,43 @@ export async function findManyArtists (
 ) {
   const hashes = artists.map(a => hashArtist(a))
 
-  const founds = await ctx.redis.getManyObjects(hashes)
+  const founded = await ctx.redis.getManyObjects(hashes, EntityType.Artist)
 
-  if (!founds || founds.length === 0) throw new Error('Could not find artists on redis')
+  if (!founded || founded.length === 0) throw new Error('Could not find artists on redis')
 
   let onRedis = 0
 
-  const promises = founds.map(async (artist, index) => {
-    let artistObject: Nullable<ArtistWithImageResources> = null
-    if (typeof artist === 'string') {
-      const object = JSON.parse(artist) as ArtistWithImageResources
-      const checkedArtistSources = checkArtistSources(object, sources)
+  const promises = founded.map(async (artist, index) => {
+    try {
+      let artistObject: Nullable<ArtistWithImageResources> = null
+      if (typeof artist === 'string') {
+        const object = JSON.parse(artist) as ArtistWithImageResources
+        const checkedArtistSources = checkArtistSources(object, sources)
 
-      if (checkedArtistSources) onRedis++
+        if (checkedArtistSources) onRedis++
 
-      artistObject = checkedArtistSources
-        ? object
-        : await findArtist(ctx, artists[index], sources)
-    } else {
-      artistObject = await findArtist(ctx, artists[index], sources)
-    }
-
-    if (!artistObject) return null
-    if (retrievePalette) {
-      if (await resolveResourcePalette(ctx, artistObject.artist_image_resource)) {
-        await ctx.redis.setArtist(artistObject.hash, artistObject)
+        artistObject = checkedArtistSources
+          ? object
+          : await findArtist(ctx, artists[index], sources)
+      } else {
+        await ctx.redis.checkIfIsNull(hashes[index], EntityType.Artist)
+        artistObject = await findArtist(ctx, artists[index], sources)
       }
+
+      if (!artistObject) return null
+      if (retrievePalette) {
+        if (await resolveResourcePalette(ctx, artistObject.artist_image_resource)) {
+          await ctx.redis.setArtist(artistObject.hash, artistObject)
+        }
+      }
+      return formatDisplayArtist(artistObject)
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return null
+      }
+      logger.error(err)
+      return null
     }
-    return formatDisplayArtist(artistObject)
   })
 
   logger.time('Promises')

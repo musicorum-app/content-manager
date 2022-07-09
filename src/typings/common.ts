@@ -14,6 +14,12 @@ export enum DataSource {
   LastFM = 'lastfm'
 }
 
+export enum EntityType {
+  Artist = 'artist',
+  Album = 'album',
+  Track = 'track'
+}
+
 export interface Config {
   sources: {
     [key: string]: number

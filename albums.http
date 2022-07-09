@@ -1,4 +1,4 @@
-POST http://localhost:8080/find/albums?popularity=true&palette=true&sources=spotify,lastfm
+POST http://localhost:8080/find/albums?popularity=true&palette=true&sources=lastfm
 Content-Type: application/json
 
 {
@@ -6,10 +6,21 @@ Content-Type: application/json
         {
             "name": "7 rings",
             "artist": "Ariana grande"
+        },
+        {
+            "name": "On the Water",
+            "artist": "Future Islands"
         }
     ]
 }
 
+
+###
+
+POST http://localhost:8080/find/albums?sources=spotify,lastfm&palette=true
+Content-Type: application/json
+
+{"albums": [{"name": "Isolation", "artist": "Kali Uchis"}, {"name": "Pure Heroine (Extended)", "artist": "Lorde"}, {"name": "Planet Her", "artist": "Doja Cat"}, {"name": "AM", "artist": "Arctic Monkeys"}, {"name": "Positions", "artist": "Ariana Grande"}, {"name": "Ctrl", "artist": "SZA"}, {"name": "Por Vida", "artist": "Kali Uchis"}, {"name": "Sin Miedo (del Amor y Otros Demonios) \u221e", "artist": "Kali Uchis"}, {"name": "Future Nostalgia", "artist": "Dua Lipa"}, {"name": "Hot Pink", "artist": "Doja Cat"}, {"name": "Art Angels", "artist": "Grimes"}, {"name": "Flower Boy", "artist": "Tyler, the Creator"}, {"name": "Alien Boy EP", "artist": "Oliver Tree"}, {"name": "Be the Cowboy", "artist": "Mitski"}, {"name": "K-12", "artist": "Melanie Martinez"}, {"name": "IGOR", "artist": "Tyler, the Creator"}, {"name": "Melodrama", "artist": "Lorde"}, {"name": "Cry Baby (Deluxe Edition)", "artist": "Melanie Martinez"}, {"name": "1992 Deluxe", "artist": "Princess Nokia"}, {"name": "Currents", "artist": "Tame Impala"}, {"name": "Bohemian Rhapsody (The Original Soundtrack)", "artist": "Queen"}, {"name": "Batid\u00e3o Tropical", "artist": "Pabllo Vittar"}]}
 
 ###
 
