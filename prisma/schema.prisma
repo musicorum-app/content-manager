@@ -17,6 +17,12 @@ enum ImageSize {
   UNKNOWN
 }
 
+enum ImageResourceSource {
+  SPOTIFY
+  DEEZER
+  LASTFM
+}
+
 model Image {
   hash                String    @id @db.Char(40)
   image_resource_hash String    @db.Char(40)
@@ -24,16 +30,12 @@ model Image {
   url                 String    @db.VarChar(256)
 
   image_resource ImageResource? @relation(fields: [image_resource_hash], references: [hash])
-}
 
-enum ImageResourceSource {
-  SPOTIFY
-  DEEZER
-  LASTFM
+  @@index([hash], type: Hash)
 }
 
 model ImageResource {
-  hash     String              @id @db.Char(40)
+  hash     String              @id @db.Char(40) @unique
   explicit Boolean?
   active   Boolean             @default(true)
   source   ImageResourceSource
@@ -51,6 +53,8 @@ model ImageResource {
   artist_image_resource ArtistImageResourceLink[]
   album_image_resource  AlbumImageResourceLink[]
   track_image_resource  TrackImageResourceLink[]
+
+  @@index([hash], type: Hash)
 }
 
 model Artist {
@@ -67,6 +71,8 @@ model Artist {
   updated_at            DateTime?
   preferred_resource    String?                   @db.Char(40)
   artist_image_resource ArtistImageResourceLink[]
+
+  @@index([hash], type: Hash)
 }
 
 model ArtistImageResourceLink {
@@ -92,6 +98,8 @@ model Album {
   updated_at           DateTime?
   preferred_resource   String?                  @db.Char(40)
   album_image_resource AlbumImageResourceLink[]
+
+  @@index([hash], type: Hash)
 }
 
 model AlbumImageResourceLink {
@@ -125,6 +133,8 @@ model Track {
   preferred_resource   String?                  @db.Char(40)
 
   track_image_resource TrackImageResourceLink[]
+
+  @@index([hash], type: Hash)
 }
 
 model TrackImageResourceLink {
@@ -148,4 +158,6 @@ model TrackFeatures {
   liveness         Float   @db.DoublePrecision
   valence          Float   @db.DoublePrecision
   tempo            Float   @db.DoublePrecision
+
+  @@index([spotify_id], type: Hash)
 }
