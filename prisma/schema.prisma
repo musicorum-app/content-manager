@@ -32,6 +32,7 @@ model Image {
   image_resource ImageResource? @relation(fields: [image_resource_hash], references: [hash])
 
   @@index([hash], type: Hash)
+  @@index([image_resource_hash], type: Hash)
 }
 
 model ImageResource {
