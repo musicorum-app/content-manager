@@ -51,7 +51,8 @@ interface LastfmArtistResponseWithImage extends getInfo {
 export async function findArtist (
   ctx: Context,
   name: string,
-  sources: DataSource[]
+  sources: DataSource[],
+  force?: boolean
 ): Promise<ArtistWithImageResources | null> {
   const { redis, prisma } = ctx
   const end = ctx.monitoring.startResourcesTimer('artists')
@@ -62,12 +63,12 @@ export async function findArtist (
     // logger.debug('Searching for artist ' + name)
     const exists = await redis.getArtist(hashedArtist)
     // logger.debug('Found artist ' + name + ' in redis with %sms', performance.now() - redisStart)
-    if (exists && exists.hash && checkArtistSources(exists, sources)) {
+    if (exists && exists.hash && checkArtistSources(exists, sources) && !force) {
       end(1)
       return exists
     } else {
       const found = await getArtistFromPrisma(prisma, hashedArtist)
-      if (found && checkArtistSources(found, sources)) {
+      if (found && checkArtistSources(found, sources) && !force) {
         redis.setArtist(hashedArtist, found)
         end(2)
         return found
@@ -93,15 +94,11 @@ export async function findArtist (
         await Promise.all(
           sources.map(async (source) => {
             try {
-              if (source === DataSource.Spotify && !item.spotify_id) {
+              if (source === DataSource.Spotify && (!item.spotify_id || force)) {
                 await findArtistFromSpotify(ctx, item, resources, images)
                 foundOne = true
               } else if (
-                source === DataSource.LastFM &&
-                !(item.similar.length || item.tags.length) &&
-                !found.artist_image_resource.find(
-                  (r) => r.image_resource.source === ImageResourceSource.LASTFM
-                )
+                source === DataSource.LastFM && (!(item.similar.length || item.tags.length) || force)
               ) {
                 await findArtistFromLastFM(ctx, item, resources, images)
                 foundOne = true
@@ -119,11 +116,15 @@ export async function findArtist (
           return found
         }
 
+        // prevent duplicates
+        item.tags = [...new Set(item.tags)]
+        item.similar = [...new Set(item.similar)]
+
         let toCreate: Prisma.ArtistCreateInput = item
 
         if (resources.length > 0) {
           const preferred =
-            resources.find((r) => r.source === ImageResourceSource.SPOTIFY) ??
+            resources.find((r) => r.source === ImageResourceSource.LASTFM) ??
             resources[0]
 
           await prisma.imageResource.createMany({
@@ -219,7 +220,7 @@ function checkArtistSources (
     )) {
       return false
     }
-    
+
     if (!artist.tags.length || !artist.similar.length) {
       return false
     }
@@ -338,8 +339,6 @@ async function findArtistFromLastFM (
         size: ImageSize.MEDIUM,
         image_resource_hash: resourceHash
       })
-
-      item.preferred_resource = resourceHash
     }
   } catch (err) {
     if (isLastFMError(err) && err.code === 6) {
@@ -387,7 +386,8 @@ export async function findManyArtists (
   ctx: Context,
   artists: string[],
   sources: DataSource[],
-  retrievePalette: boolean
+  retrievePalette: boolean,
+  force: boolean
 ) {
   const hashes = artists.map((a) => hashArtist(a))
 
@@ -400,7 +400,9 @@ export async function findManyArtists (
   const promises = founded.map(async (artist, index) => {
     try {
       let artistObject: Nullable<ArtistWithImageResources> = null
-      if (typeof artist === 'string') {
+      if (force) {
+        artistObject = await findArtist(ctx, artists[index], sources, force)
+      } else if (typeof artist === 'string') {
         const object = JSON.parse(artist) as ArtistWithImageResources
         const checkedArtistSources = checkArtistSources(object, sources)
 

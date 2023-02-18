@@ -21,13 +21,14 @@ const route = (ctx: Context) => {
       }
       logger.time('Find artists with length of ' + artists.length)
       const retrievePalette = req.query.palette === 'true'
+      const force = req.query.force === 'true'
 
       const sources = parseSourcesList(req.query.sources)
       if (sources.length === 0) {
         sources[0] = DataSource.LastFM
       }
       logger.time('S')
-      let result = await findManyArtists(ctx, artists, sources, retrievePalette)
+      let result = await findManyArtists(ctx, artists, sources, retrievePalette, force)
       logger.timeEnd('S')
 
       // const promises = artists.map(
