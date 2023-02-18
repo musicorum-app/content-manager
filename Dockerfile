@@ -1,4 +1,5 @@
-FROM node:16 AS builder
+FROM node:18 AS builder
+RUN apk add --update --no-cache openssl1.1-compat
 WORKDIR /src
 COPY package*.json ./
 COPY . .
@@ -7,7 +8,7 @@ RUN npx prisma generate
 RUN npm run build
 RUN npm prune --production
 
-FROM node:16-alpine
+FROM node:18-alpine
 WORKDIR /app
 COPY --from=builder /src .
 EXPOSE 80
