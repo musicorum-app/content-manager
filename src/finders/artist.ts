@@ -215,7 +215,7 @@ function checkArtistSources (
     !(
       artist.tags.length ||
       artist.similar.length ||
-      !artist.artist_image_resource.find(
+      artist.artist_image_resource.find(
         (r) => r.image_resource.source === ImageResourceSource.LASTFM
       )
     )
