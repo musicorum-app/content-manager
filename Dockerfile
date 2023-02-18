@@ -2,7 +2,8 @@ FROM node:16 AS builder
 WORKDIR /src
 COPY package*.json ./
 COPY . .
-RUN npm ci
+RUN yarn install --frozen-lockfile
+RUN npx prisma generate
 RUN npm run build
 RUN npm prune --production
 
