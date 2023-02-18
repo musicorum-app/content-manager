@@ -1,5 +1,4 @@
 FROM node:18 AS builder
-RUN apk add --update --no-cache openssl1.1-compat
 WORKDIR /src
 COPY package*.json ./
 COPY . .
