@@ -24,7 +24,7 @@ const route = (ctx: Context) => {
 
       const sources = parseSourcesList(req.query.sources)
       if (sources.length === 0) {
-        sources[0] = DataSource.Spotify
+        sources[0] = DataSource.LastFM
       }
       logger.time('S')
       let result = await findManyArtists(ctx, artists, sources, retrievePalette)

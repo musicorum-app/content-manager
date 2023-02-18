@@ -10,5 +10,6 @@ dist
 
 docker/resources/database
 docker/resources/prometheus/data
+docker/resources_2/database
 
 yarn-error.log

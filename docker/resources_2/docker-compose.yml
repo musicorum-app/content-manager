@@ -6,12 +6,16 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
      - ./database/volume:/var/lib/postgresql/data
+    ports:
+     - '5432:5432'
   redis:
     image: redis:latest
     command:
      - redis-server
      - --requirepass
      - password
+    ports:
+     - '6379:6379'
   # manager:
   #   image:  musicorum/resource-manager:latest
   #   ports:

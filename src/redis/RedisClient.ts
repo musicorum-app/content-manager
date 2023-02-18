@@ -93,7 +93,7 @@ export default class RedisClient {
   public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {
     const features = await this.client?.hgetall(hash + ':features')
     if (Object.keys(features || {}).length === 0) await this.checkIfIsNull(hash)
-    return features && features !== {} ? this.convertNulls(features) as unknown as TrackFeatures : null
+    return features && Object.keys(features).length > 0 ? this.convertNulls(features) as unknown as TrackFeatures : null
   }
 
   public async getAlbum (hash: string): Promise<AlbumWithImageResources | null> {

@@ -1,12 +1,14 @@
 import { hash, hashArtist } from '../utils/hashing'
 import { ArtistResponse, Context, DataSource, EntityType, Nullable } from '../typings/common'
-import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, Prisma, PrismaClient } from '@prisma/client'
+import { Artist, ArtistImageResourceLink, Image, ImageResource, ImageResourceSource, ImageSize, Prisma, PrismaClient } from '@prisma/client'
 import { formatResource, imageSizeToSizeEnum, isLastFMError, normalizeString } from '../utils/utils'
 import { Signale } from 'signale'
 import { NotFoundError } from '../redis/RedisClient'
 import { QueueSource } from '../queue/sources'
 import { red, yellow } from 'colorette'
 import { resolveResourcePalette } from '../modules/palette'
+import { getInfo } from 'lastfm-typed/dist/interfaces/artistInterface'
+import { Image as LastfmImage } from 'lastfm-typed/dist/interfaces/shared'
 
 const logger = new Signale({ scope: 'ArtistFinder' })
 
@@ -20,6 +22,10 @@ export type ArtistWithImageResources = Artist & {
 
 export type CreateImageResourceWithImages = Prisma.ImageResourceCreateInput & {
   images: Prisma.ImageCreateInput[]
+}
+
+interface LastfmArtistResponseWithImage extends getInfo {
+  image: LastfmImage[]
 }
 
 export async function findArtist (
@@ -74,7 +80,7 @@ export async function findArtist (
                 await findArtistFromSpotify(ctx, item, resources, images)
                 foundOne = true
               } else if (source === DataSource.LastFM && !(item.similar.length || item.tags.length)) {
-                await findArtistFromLastFM(ctx, item)
+                await findArtistFromLastFM(ctx, item, resources, images)
                 foundOne = true
               }
             } catch (error) {
@@ -223,7 +229,7 @@ async function findArtistFromSpotify (ctx: Context, item: Artist, resources: Pri
   await ctx.redis.setPopularity(selected.id, selected.popularity)
 }
 
-async function findArtistFromLastFM (ctx: Context, item: Artist) {
+async function findArtistFromLastFM (ctx: Context, item: Artist, resources: Prisma.ImageResourceCreateInput[], images: Prisma.ImageCreateManyInput[]) {
   if (await ctx.redis.checkIfIsNotFound(item.hash, DataSource.LastFM)) {
     logger.warn(`Resource was not found previously (${red('LFM')}) [${yellow(item.name)}]`)
     return
@@ -233,7 +239,7 @@ async function findArtistFromLastFM (ctx: Context, item: Artist) {
     const end = ctx.monitoring.startExternalRequestTimer(DataSource.LastFM, 'artist.getInfo')
     const res = await ctx.queueController.queueTask(
       QueueSource.LastFM,
-      () => ctx.lastfm.artist.getInfo({ artist: item.name })
+      () => ctx.lastfm.artist.getInfo({ artist: item.name, user: 'musicorum' }) as Promise<LastfmArtistResponseWithImage>
     )
     end()
 
@@ -244,6 +250,24 @@ async function findArtistFromLastFM (ctx: Context, item: Artist) {
       // If there's no tags or similar artists, set it as not found so
       // it wont be searched again when bypassed py the checkArtistSources
       ctx.redis.setAsNotFound(item.hash, DataSource.LastFM)
+    }
+
+    if (res.image.length >= 4 && res.image[3].url && !res.image[3].url.includes('2a96cbd8b46e442fc41c2b86b821562f.png')) {
+      const resourceHash = hash(res.image.map(i => i.url).join(''))
+
+      resources.push({
+        hash: resourceHash,
+        source: ImageResourceSource.LASTFM
+      })
+
+      images.push({
+        hash: hash(res.image[3].url),
+        url: res.image[3].url,
+        size: ImageSize.MEDIUM,
+        image_resource_hash: resourceHash
+      })
+
+      item.preferred_resource = resourceHash
     }
   } catch (err) {
     if (isLastFMError(err) && err.code === 6) {
