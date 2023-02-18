@@ -98,7 +98,10 @@ export async function findArtist (
                 foundOne = true
               } else if (
                 source === DataSource.LastFM &&
-                !(item.similar.length || item.tags.length)
+                !(item.similar.length || item.tags.length) &&
+                !found.artist_image_resource.find(
+                  (r) => r.image_resource.source === ImageResourceSource.LASTFM
+                )
               ) {
                 await findArtistFromLastFM(ctx, item, resources, images)
                 foundOne = true
