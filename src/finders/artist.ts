@@ -212,12 +212,14 @@ function checkArtistSources (
   if (sources.includes(DataSource.Spotify) && !artist.spotify_id) return false
   if (
     sources.includes(DataSource.LastFM) &&
-    !(
-      artist.tags.length ||
-      artist.similar.length ||
-      artist.artist_image_resource.find(
+    (
+      !(
+        artist.tags.length ||
+        artist.similar.length
+      ) ||
+      !artist.artist_image_resource.find(
         (r) => r.image_resource.source === ImageResourceSource.LASTFM
-      )
+      ) 
     )
   ) { return false }
   if (sources.includes(DataSource.Deezer) && !artist.deezer_id) return false
