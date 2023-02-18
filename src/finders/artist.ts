@@ -106,7 +106,6 @@ export async function findArtist (
 
           toCreate = {
             ...item,
-            updated_at: new Date(),
             preferred_resource: preferred.hash,
             artist_image_resource: {
               createMany: {
@@ -124,7 +123,10 @@ export async function findArtist (
             hash: hashedArtist
           },
           create: toCreate,
-          update: toCreate
+          update: {
+            ...toCreate,
+            updated_at: new Date(),
+          }
         })
           .catch(err => {
             logger.warn(`Could not upsert artist [${yellow(hashedArtist)}]`, err)
@@ -175,9 +177,16 @@ function getArtistFromPrisma (prisma: PrismaClient, hash: string) {
   })
 }
 
+// time when we started to get image from lastfm for artists
+const lastfmArtistEpoach = 1676687698739
+
 function checkArtistSources (artist: ArtistWithImageResources, sources: DataSource[]) {
   if (sources.includes(DataSource.Spotify) && !artist.spotify_id) return false
-  if (sources.includes(DataSource.LastFM) && !(artist.tags.length || artist.similar.length)) return false
+  if (
+    sources.includes(DataSource.LastFM)
+    // se o resource desse artista foi feito antes do epoach, invalidar e pegar denovo
+    && !(artist.tags.length || artist.similar.length || (artist.updated_at || artist.created_at).getTime() < lastfmArtistEpoach)
+  ) return false
   if (sources.includes(DataSource.Deezer) && !artist.deezer_id) return false
   return true
 }
