@@ -338,7 +338,7 @@ async function findTrackFromDeezer (
   const selected = data
     .find(a => normalizeString(a.title) === normalizeString(item.name)) || data[0]
 
-  item.deezer_id = selected.id
+  item.deezer_id = selected.id.toString()
   item.preview = selected.preview
   item.explicit = item.explicit ? true : selected.explicit_lyrics
   item.album = item.album ?? selected.album.title
@@ -383,7 +383,7 @@ export function formatDisplayTrack ({
     album,
     artists,
     spotify_id,
-    deezer_id,
+    deezer_id: deezer_id ? parseInt(deezer_id) : null,
     genius_id,
     tags,
     duration,

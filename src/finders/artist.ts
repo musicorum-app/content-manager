@@ -365,7 +365,7 @@ export function formatDisplayArtist ({
     hash,
     name,
     spotify_id: spotify_id,
-    deezer_id: deezer_id,
+    deezer_id: deezer_id ? parseInt(deezer_id) : null,
     genres: genres,
     similar: similar,
     tags: tags,

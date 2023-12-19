@@ -294,7 +294,7 @@ export function formatDisplayAlbum ({
     hash,
     name,
     spotify_id: spotify_id,
-    deezer_id: deezer_id,
+    deezer_id: deezer_id ? parseInt(deezer_id) : null,
     artists: artists,
     tags: tags,
     release_date: release_date,
