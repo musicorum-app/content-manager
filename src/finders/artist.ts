@@ -68,7 +68,7 @@ export async function findArtist (
       return exists
     } else {
       const found = await getArtistFromPrisma(prisma, hashedArtist)
-      if (found && checkArtistSources(found, sources) && !force) {
+      if (found && checkArtistSources(found, sources) && checkArtistUpdated(found) && !force) {
         await redis.setArtist(hashedArtist, found)
         end(2)
         return found

@@ -42,7 +42,7 @@ export async function findTrack (
     } else {
       const found = await getTrackFromPrisma(prisma, hashedTrack)
 
-      if (found && checkTrackSources(found, sources, preview)) {
+      if (found && checkTrackSources(found, sources, preview) && checkTrackUpdated(found)) {
         redis.setTrack(hashedTrack, found)
         end(2)
         return found
