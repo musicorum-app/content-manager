@@ -73,6 +73,7 @@ export async function findArtist (
         end(2)
         return found
       } else {
+        const shouldUpdate = found ? !checkArtistUpdated(found) : true
         const item: Artist = {
           hash: hashedArtist,
           name: found?.name ?? name,
@@ -94,11 +95,11 @@ export async function findArtist (
         await Promise.all(
           sources.map(async (source) => {
             try {
-              if (source === DataSource.Spotify && (!item.spotify_id || force)) {
+              if (source === DataSource.Spotify && (!item.spotify_id || force || shouldUpdate)) {
                 await findArtistFromSpotify(ctx, item, resources, images)
                 foundOne = true
               } else if (
-                source === DataSource.LastFM && (!(item.similar.length || item.tags.length) || force)
+                source === DataSource.LastFM && (!(item.similar.length || item.tags.length) || force || shouldUpdate)
               ) {
                 await findArtistFromLastFM(ctx, item, resources, images)
                 foundOne = true
@@ -238,6 +239,7 @@ function checkArtistUpdated (
 ) {
   if (!artist.updated_at) return true
   const updatedInterval = Date.now() - new Date(artist.updated_at).getTime()
+  console.log('updated:', artist.updated_at, 'is valid:', updatedInterval < updateFactor)
   return updatedInterval < updateFactor
 }
 

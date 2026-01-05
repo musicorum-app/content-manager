@@ -47,6 +47,7 @@ export async function findTrack (
         end(2)
         return found
       } else {
+        const shouldUpdate = found ? !checkTrackUpdated(found) : true
         const item: Track = {
           hash: hashedTrack,
           name: found?.name ?? name,
@@ -71,13 +72,13 @@ export async function findTrack (
         await Promise.all(
           sources.map(async source => {
             try {
-              if (source === DataSource.Spotify && !item.spotify_id) {
+              if (source === DataSource.Spotify && (!item.spotify_id || shouldUpdate)) {
                 await findTrackFromSpotify(ctx, item, resources, images)
                 foundOne = true
-              } else if (source === DataSource.LastFM && !item.tags.length) {
+              } else if (source === DataSource.LastFM && (!item.tags.length || shouldUpdate)) {
                 await findTrackFromLastFM(ctx, item, resources, images)
                 foundOne = true
-              } else if (source === DataSource.Deezer && !item.deezer_id) {
+              } else if (source === DataSource.Deezer && (!item.deezer_id || shouldUpdate)) {
                 await findTrackFromDeezer(ctx, item, resources, images)
                 foundOne = true
               }
