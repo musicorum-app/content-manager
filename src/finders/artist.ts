@@ -69,7 +69,7 @@ export async function findArtist (
     } else {
       const found = await getArtistFromPrisma(prisma, hashedArtist)
       if (found && checkArtistSources(found, sources) && !force) {
-        redis.setArtist(hashedArtist, found)
+        await redis.setArtist(hashedArtist, found)
         end(2)
         return found
       } else {
@@ -112,6 +112,9 @@ export async function findArtist (
         )
 
         if (!foundOne) {
+          if (found) {
+            await redis.setArtist(hashedArtist, found)
+          }
           end(2)
           return found
         }
@@ -174,7 +177,7 @@ export async function findArtist (
         const entry = await getArtistFromPrisma(prisma, hashedArtist)
         if (!entry) throw new Error('This artist could not be saved.')
 
-        redis.setArtist(hashedArtist, entry)
+        await redis.setArtist(hashedArtist, entry)
 
         end(3)
         return entry
@@ -398,32 +401,9 @@ export async function findManyArtists (
   retrievePalette: boolean,
   force: boolean
 ) {
-  const hashes = artists.map((a) => hashArtist(a))
-
-  const founded = await ctx.redis.getManyObjects(hashes, EntityType.Artist)
-
-  if (!founded || founded.length === 0) { throw new Error('Could not find artists on redis') }
-
-  let onRedis = 0
-
-  const promises = founded.map(async (artist, index) => {
+  const promises = artists?.map(async (artist) => {
     try {
-      let artistObject: Nullable<ArtistWithImageResources> = null
-      if (force) {
-        artistObject = await findArtist(ctx, artists[index], sources, force)
-      } else if (typeof artist === 'string') {
-        const object = JSON.parse(artist) as ArtistWithImageResources
-        const checkedArtistSources = checkArtistSources(object, sources)
-
-        if (checkedArtistSources) onRedis++
-
-        artistObject = checkedArtistSources
-          ? object
-          : await findArtist(ctx, artists[index], sources)
-      } else {
-        await ctx.redis.checkIfIsNull(hashes[index], EntityType.Artist)
-        artistObject = await findArtist(ctx, artists[index], sources)
-      }
+      const artistObject = await findArtist(ctx, artist, sources, force)
 
       if (!artistObject) return null
       if (retrievePalette) {
@@ -448,7 +428,6 @@ export async function findManyArtists (
     logger.timeEnd('Promises')
     ctx.monitoring.metrics.resourcesCounter
       .labels({ type: 'artist', level: 1 })
-      .inc(onRedis)
     return r
   })
 }

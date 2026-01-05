@@ -315,7 +315,7 @@ export async function findManyAlbums (
 
   const founded = await ctx.redis.getManyObjects(hashes, EntityType.Album)
 
-  if (!founded || founded.length === 0) throw new Error('Could not find artists on redis')
+  if (!founded || founded.length === 0) throw new Error('Could not find albums on redis')
 
   let onRedis = 0
 

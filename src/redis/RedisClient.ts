@@ -53,6 +53,8 @@ export default class RedisClient {
     // await this.client?.hmset(key, stringifyObject(artist))
     key = this.createKey(key, EntityType.Artist)
 
+    console.log(key)
+    console.log('saving set redis')
     await this.client?.set(key, JSON.stringify(artist))
     await this.client?.expire(key, config.expiration.artists)
   }

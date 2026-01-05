@@ -160,8 +160,6 @@ export async function findTrack (
       return null
     }
     logger.error(e)
-    console.log('huhuhuhuhuhuhuhuhuhu')
-    console.log(e)
     return null
   }
 }
@@ -412,30 +410,9 @@ export async function findManyTracks (
   preview: boolean,
   retrievePalette: boolean
 ) {
-  const hashes = tracks.map(t => hashTrack(t.name, t.artist, t.album || ''))
-
-  const founded = await ctx.redis.getManyObjects(hashes, EntityType.Track)
-
-  if (!founded || founded.length === 0) throw new Error('Could not find tracks on redis')
-
-  let onRedis = 0
-
-  const promises = founded.map(async (track, index) => {
+  const promises = tracks.map(async (track) => {
     try {
-      let trackObject: Nullable<TrackWithImageResources> = null
-      if (typeof track === 'string') {
-        const object = JSON.parse(track) as TrackWithImageResources
-        const checkedTrackSources = checkTrackSources(object, sources, preview)
-
-        if (checkedTrackSources) onRedis++
-
-        trackObject = checkedTrackSources
-          ? object
-          : await findTrack(ctx, tracks[index], preview, sources)
-      } else {
-        await ctx.redis.checkIfIsNull(hashes[index], EntityType.Track)
-        trackObject = await findTrack(ctx, tracks[index], preview, sources)
-      }
+      const trackObject = await findTrack(ctx, track, preview, sources)
 
       if (!trackObject) return null
       if (retrievePalette) {
@@ -449,8 +426,6 @@ export async function findManyTracks (
         return null
       }
       logger.error(err)
-      console.log(err)
-      console.log('adsfakjdgashjdhajsd')
       return null
     }
   })
@@ -461,7 +436,7 @@ export async function findManyTracks (
       logger.timeEnd('Promises')
       ctx.monitoring.metrics.resourcesCounter
         .labels({ type: 'track', level: 1 })
-        .inc(onRedis)
+
       return r
     })
 }
