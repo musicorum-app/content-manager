@@ -63,7 +63,7 @@ export async function findArtist (
     // logger.debug('Searching for artist ' + name)
     const exists = await redis.getArtist(hashedArtist)
     // logger.debug('Found artist ' + name + ' in redis with %sms', performance.now() - redisStart)
-    if (exists && exists.hash && checkArtistSources(exists, sources) && !force) {
+    if (exists && exists.hash && checkArtistSources(exists, sources) && checkArtistUpdated(exists) && !force) {
       end(1)
       return exists
     } else {
@@ -227,6 +227,15 @@ function checkArtistSources (
   }
   if (sources.includes(DataSource.Deezer) && !artist.deezer_id) return false
   return true
+}
+
+const updateFactor = 10 * 24 * 60 * 60 * 1000 // 10 days
+function checkArtistUpdated (
+  artist: ArtistWithImageResources
+) {
+  if (!artist.updated_at) return true
+  const updatedInterval = Date.now() - new Date(artist.updated_at).getTime()
+  return updatedInterval < updateFactor
 }
 
 async function findArtistFromSpotify (

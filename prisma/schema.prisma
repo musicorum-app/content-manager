@@ -125,7 +125,7 @@ model Track {
 
   tags     String[] @db.Text
   duration Int?     @db.Integer // ms
-  preview  String?  @db.VarChar(255)
+  preview  String?  @db.Text
   explicit Boolean?
 
   created_at DateTime  @default(now())

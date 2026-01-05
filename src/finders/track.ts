@@ -36,7 +36,7 @@ export async function findTrack (
     const hashedTrack = hashTrack(name, artist, album || '')
 
     const exists = await redis.getTrack(hashedTrack)
-    if (exists && exists.hash && checkTrackSources(exists, sources, preview)) {
+    if (exists && exists.hash && checkTrackSources(exists, sources, preview) && checkTrackUpdated(exists)) {
       end(1)
       return exists
     } else {
@@ -88,15 +88,12 @@ export async function findTrack (
         )
 
         if (preview && !item.preview) {
-          if (!item.spotify_id) {
-            await findTrackFromSpotify(ctx, item, resources, images)
+          await findTrackFromSpotify(ctx, item, resources, images)
 
-            if (!item.preview) {
-              await findTrackFromDeezer(ctx, item, resources, images)
-            }
-          } else {
+          if (!item.preview) {
             await findTrackFromDeezer(ctx, item, resources, images)
           }
+
           if (item.preview) foundOne = true
         }
 
@@ -163,6 +160,8 @@ export async function findTrack (
       return null
     }
     logger.error(e)
+    console.log('huhuhuhuhuhuhuhuhuhu')
+    console.log(e)
     return null
   }
 }
@@ -192,6 +191,15 @@ function checkTrackSources (track: TrackWithImageResources, sources: DataSource[
   if (sources.includes(DataSource.Deezer) && !track.deezer_id) return false
   if (preview && !track.preview) return false
   return true
+}
+
+const updateFactor = 10 * 24 * 60 * 60 * 1000 // 10 days
+function checkTrackUpdated (
+  track: TrackWithImageResources
+) {
+  if (!track.updated_at) return true
+  const updatedInterval = Date.now() - new Date(track.updated_at).getTime()
+  return updatedInterval < updateFactor
 }
 
 async function findTrackFromSpotify (
@@ -441,6 +449,8 @@ export async function findManyTracks (
         return null
       }
       logger.error(err)
+      console.log(err)
+      console.log('adsfakjdgashjdhajsd')
       return null
     }
   })

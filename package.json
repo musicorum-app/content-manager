@@ -24,6 +24,7 @@
     "node-spotify-api": "^1.1.1",
     "node-vibrant": "^3.2.1-alpha.1",
     "prom-client": "^14.0.1",
+    "redis": "^5.10.0",
     "signale": "^1.4.0",
     "tedis": "^0.1.12"
   },

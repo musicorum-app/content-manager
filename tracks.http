@@ -31,7 +31,11 @@ Content-Type: application/json
 
 ###
 
-POST http://localhost:8080/find/tracks?palette=true&sources=lastfm,spotify&preview=true&features=true
+POST http://localhost:8080/find/tracks?palette=true&sources=lastfm,spotify&preview=true
 Content-Type: application/json
 
 {"tracks": [{"name": "Dead to Me", "album": null, "artist": "Kali Uchis"}, {"name": "Your Teeth in My Neck", "album": null, "artist": "Kali Uchis"}, {"name": "Heart Attack (\uce04)", "album": null, "artist": "Loona"}, {"name": "After the Storm (feat. Tyler, the Creator & Bootsy Collins)", "album": null, "artist": "Kali Uchis"}, {"name": "10%", "album": null, "artist": "KAYTRANADA"}, {"name": "telepat\u00eda", "album": null, "artist": "Kali Uchis"}, {"name": "ASAP", "album": null, "artist": "STAYC"}, {"name": "You Right", "album": null, "artist": "Doja Cat"}, {"name": "Ribs", "album": null, "artist": "Lorde"}, {"name": "Kiss Me More (feat. SZA)", "album": null, "artist": "Doja Cat"}, {"name": "Jesus Don't Like That I'm Gay but Satans Cool With It", "album": null, "artist": "LIL BOODANG"}, {"name": "Alcohol-Free", "album": null, "artist": "TWICE"}, {"name": "Are U gonna tell her? (feat. MC Zaac)", "album": null, "artist": "Tove Lo"}, {"name": "motive (with Doja Cat)", "album": null, "artist": "Ariana Grande"}, {"name": "Tyrant (feat. Jorja Smith)", "album": null, "artist": "Kali Uchis"}, {"name": "positions", "album": null, "artist": "Ariana Grande"}, {"name": "Flight 22", "album": null, "artist": "Kali Uchis"}, {"name": "Buzzcut Season", "album": null, "artist": "Lorde"}, {"name": "Royals", "album": null, "artist": "Lorde"}, {"name": "Tennis Court", "album": null, "artist": "Lorde"}, {"name": "400 Lux", "album": null, "artist": "Lorde"}, {"name": "Tomorrow", "album": null, "artist": "Kali Uchis"}, {"name": "Hi High", "album": null, "artist": "Loona"}]}
+
+####
+GET https://api.spotify.com/v1/audio-features?ids=54IbnYEdA3ymfxv07WgN3b,6SSC9KZQaxBdyipKRigrFC,1otG6j1WHNvl9WgXLWkHTo,6tDDoYIxWvMLTdKpjFkc1B,5BXr7hYZQOeRttkeWYTq5S,0k4d5YPDr1r7FX77VdqWez,2MvvoeRt8NcOXWESkxWn3g,3DarAbFujv6eYNliUTyqtz,0BTaaKT4RMbs5M73tOHX5Y,2qoIbcyKPpe3BKifpAfh53,5GkQIP5mWPi4KZLLXeuFTT,35mvY5S1H3J2QZyna3TFe0,51QEyJI5M7uyd8DOh9tqQY,2dLLR6qlu5UJ5gk0dKz0h3,74fpNVAJrKGQuqHETi4WSt,6rjtB7KSIiJ6v9vrACMlqF,3P4gLPPOHIRQ5j6PC1hNa5
+Authorization: Bearer BQBLvhEQ2C80RgRjF94Yfa-N4ODQVAlAzgd9eiBFLzvfYUzr-db_d68Uemd_advON9iOs63MX9N6cJynwjSLBoctNeyP91k7XHjplFgv4SNnZe5kR843ek1k-2issMuMR-1QP81TMRY\r\n

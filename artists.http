@@ -20,37 +20,23 @@ Content-Type: application/json
 
 ###
 
-POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=spotify
+POST http://localhost:8080/find/artists?popularity=true&sources=spotify,deezer,lastfm
 Content-Type: application/json
 
-{
-    "artists": [
-        "Willow", "doja cat"
-    ]
-}
+{"artists":["Madonna","PinkPantheress","Janet Jackson","Kylie Minogue","Lady Gaga","Kate Bush","Red Velvet","FKA twigs","Charli xcx","Amaarae","Michael Jackson","No Doubt","Ana Frango Elétrico","Jamiroquai","Marina Lima","Jessie Ware","Rina Sawayama","Steely Dan","Carly Rae Jepsen","Basement Jaxx","Weezer","Björk","Legião Urbana","Ravyn Lenae","Foster the People","f5ve","Sufjan Stevens","Vampire Weekend","The Cardigans","Slayyyter","Jae Stephens","Katy Perry","Arctic Monkeys","NewJeans","Gain","The Smashing Pumpkins","HAIM","George Michael","RuPaul","Bruce Springsteen","Everything But the Girl","Mindless Self Indulgence","Take That","Addison Rae","The Smiths","Alanis Morissette","Le Tigre","Robyn","Prince","Madison Avenue","Yves","Magdalena Bay","Sophie","Shygirl","Belle and Sebastian","Pet Shop Boys","Earth, Wind & Fire","underscores","The Sundays","Placebo","f(x)","Tove Lo","Fiona Apple","Blur","Amaarae & PinkPantheress","Dazz Band","Cocteau Twins","The Kooks","Amerie","Groove Theory","Oklou","STAYC","Wonder Girls","Lush","9MUSES","Stacey Q","Portishead","Ninajirachi","Evelyn \"Champagne\" King","Cher","Troye Sivan","Aphex Twin","椎名林檎","Boa","Dionne Warwick","Fleetwood Mac","Snoop Dogg","Phoenix","Azealia Banks","Dua Lipa","Kim Petras","Rita Lee","Bloc Party","A Taste of Honey","Britney Spears","Doja Cat","The Beach Boys","Hole","Third Eye Blind","Chaka Khan"]}
 
 ###
 
-
-
-
-
-
-
-
-
-
-
-
-
-POST http://localhost:8080/find/artists?popularity=true&palette=true&sources=lastfm
+POST https://api-v2.musicorumapp.com/v2/resources/artists?popularity=true&sources=spotify%2Cdeezer&api_key=QJEP8D6EAGVjvACq1RJPsgAhfslRkTA2
 Content-Type: application/json
 
-{
-    "artists": [
-        "Azealia Banks","Björk","Janet Jackson","Erykah Badu","IC3PEAK","ROSALÍA","Arca","Ariana Grande","Yaeji","Kali Uchis","Karol Conká","MC Tha"
-    ]
-}
+{"artists":["Yves"]}
+
+###
+POST http://localhost:8080/find/artists?popularity=true&sources=spotify,deezer,lastfm&api_key=QJEP8D6EAGVjvACq1RJPsgAhfslRkTA2
+Content-Type: application/json
+
+{"artists":["Yves"]}
 
 
 ###

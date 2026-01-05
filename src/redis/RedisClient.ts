@@ -1,4 +1,3 @@
-import { Tedis } from 'tedis'
 import { Signale } from 'signale'
 import config from '../../config.json'
 import { Album, Track, TrackFeatures } from '@prisma/client'
@@ -7,6 +6,7 @@ import { DataSource, EntityType, Nullable } from '../typings/common'
 import { ArtistWithImageResources } from '../finders/artist'
 import { AlbumWithImageResources } from '../finders/album'
 import { TrackWithImageResources } from '../finders/track'
+import { createClient, RedisClientType } from 'redis'
 
 const entityPrefix = {
   [EntityType.Artist]: 'AR:',
@@ -16,7 +16,7 @@ const entityPrefix = {
 
 export default class RedisClient {
   private logger: Signale
-  public client?: Tedis
+  public client?: RedisClientType
 
   constructor () {
     this.logger = new Signale({ scope: 'Redis' })
@@ -26,26 +26,26 @@ export default class RedisClient {
     this.logger.info('Starting service')
 
     return new Promise((resolve) => {
-      this.client = new Tedis({
-        host: process.env.REDIS_HOST,
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASS
+      this.client = createClient({
+        url: `redis://:${process.env.REDIS_PASS}@${process.env.REDIS_HOST}:${parseInt(process.env.REDIS_PORT || '6379')}`
       })
 
+      // @ts-expect-error wrong event type
       this.client.on('connect', () => {
         resolve()
         this.logger.success('Connected to redis')
       })
+      // @ts-expect-error wrong event type
       this.client.on('error', e => {
         this.logger.error('Error connecting to redis', e)
         process.exit(1)
       })
-      this.client.on('timeout', () => {
-        this.logger.error('Timeout connecting to redis')
-      })
-      this.client.on('close', () => {
+      // @ts-expect-error wrong event type
+      this.client.on('end', () => {
         this.logger.error('Connection to redis closed')
       })
+
+      return this.client.connect()
     })
   }
 
@@ -72,14 +72,13 @@ export default class RedisClient {
   }
 
   public async setTrackFeatures (key: string, features: TrackFeatures) {
-    await this.client?.hmset(key + ':features', stringifyObject(features))
+    await this.client?.hSet(key + ':features', stringifyObject(features))
     await this.client?.expire(key + ':features', config.expiration.tracks)
   }
 
   public async getManyObjects (keys: string[], entityType: EntityType) {
-    return this.client?.mget(
-      '_',
-      ...keys.map(k => this.createKey(k, entityType))
+    return this.client?.mGet(
+      keys.map(k => this.createKey(k, entityType))
     ).then(list => list.slice(1))
   }
 
@@ -91,7 +90,7 @@ export default class RedisClient {
   }
 
   public async getTrackFeatures (hash: string): Promise<TrackFeatures | null> {
-    const features = await this.client?.hgetall(hash + ':features')
+    const features = await this.client?.hGetAll(hash + ':features')
     if (Object.keys(features || {}).length === 0) await this.checkIfIsNull(hash)
     return features && Object.keys(features).length > 0 ? this.convertNulls(features) as unknown as TrackFeatures : null
   }

@@ -6,7 +6,7 @@ import { Signale } from 'signale'
 import { TrackFeatures } from '@prisma/client'
 import { QueueSource } from '../queue/sources'
 
-const logger = new Signale({ scope: 'TrackFinder' })
+const logger = new Signale({ scope: 'TrackFinderRoute' })
 
 const route = (ctx: Context) => {
   const {
@@ -50,11 +50,11 @@ const route = (ctx: Context) => {
 
       // let result = await Promise.all(promises)
 
-      let result = await findManyTracks(ctx, tracks, sources, preview, retrievePalette)
+      const result = await findManyTracks(ctx, tracks, sources, preview, retrievePalette)
 
-      if (req.query.features === 'true') {
-        result = await handleFeatures(ctx, result)
-      }
+      // if (req.query.features === 'true') {
+      //   result = await handleFeatures(ctx, result)
+      // }
 
       logger.timeEnd('Find tracks with length of ' + tracks.length)
 
